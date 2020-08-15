@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/wuyongjia/epoll"
+	"github.com/gotcp/epoll"
 )
 
 // Asynchronous event
