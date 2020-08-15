@@ -123,10 +123,10 @@ func (s *Server) listen() {
 					s.accept()
 				} else if events[i].Events&unix.EPOLLIN != 0 {
 					s.read(fd)
-				} else if events[i].Events&(unix.EPOLLERR|unix.EPOLLHUP|unix.EPOLLRDHUP) != 0 {
-					s.Close(fd)
 				} else {
-					s.triggerOnError(ERROR_OTHER_EVENTS, nil)
+					if fd > 0 {
+						s.Close(fd)
+					}
 				}
 			}
 		} else {
@@ -154,7 +154,6 @@ func (s *Server) read(fd int) {
 			}
 		} else {
 			bp.Put(msg)
-			// if !(err == unix.EAGAIN || err == unix.EWOULDBLOCK) {s.triggerOnError(ERROR_READ, err)}
 			break
 		}
 	}
@@ -166,12 +165,10 @@ func (s *Server) accept() {
 	for {
 		fd, _, err = unix.Accept(s.Fd)
 		if err != nil {
-			if (err == unix.EAGAIN) || (err == unix.EWOULDBLOCK) {
-				break
-			} else {
+			if !(err == unix.EAGAIN || err == unix.EWOULDBLOCK) {
 				s.triggerOnError(ERROR_ACCEPT, err)
-				break
 			}
+			break
 		}
 
 		err = unix.EpollCtl(s.Epfd, unix.EPOLL_CTL_ADD, fd, &unix.EpollEvent{Events: unix.EPOLLIN | unix.EPOLLET, Fd: int32(fd)})
