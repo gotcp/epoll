@@ -147,7 +147,7 @@ func (s *Server) read(fd int) {
 		n, err = unix.Read(fd, *msg)
 		if err == nil {
 			if n > 0 {
-				tp.Invoke(s.getRequestItemForReceive(fd, msg, n))
+				s.triggerOnReceive(fd, msg, n)
 			} else {
 				bp.Put(msg)
 				s.Close(fd)

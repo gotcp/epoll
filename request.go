@@ -19,6 +19,10 @@ func (s *Server) triggerOnAccept(fd int) {
 	}
 }
 
+func (s *Server) triggerOnReceive(fd int, msg *[]byte, n int) {
+	tp.Invoke(s.getRequestItemForReceive(fd, msg, n))
+}
+
 func (s *Server) triggerOnClose(fd int) {
 	if s.OnClose != nil {
 		tp.Invoke(s.getRequestItemForClose(fd))
