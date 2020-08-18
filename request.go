@@ -13,35 +13,35 @@ type request struct {
 	Err     error
 }
 
-func (s *Server) triggerOnAccept(fd int) {
-	if s.OnAccept != nil {
-		tp.Invoke(s.getRequestItemForAccept(fd))
+func (ep *EP) triggerOnAccept(fd int) {
+	if ep.OnAccept != nil {
+		tp.Invoke(ep.getRequestItemForAccept(fd))
 	}
 }
 
-func (s *Server) triggerOnReceive(fd int, msg *[]byte, n int) {
-	tp.Invoke(s.getRequestItemForReceive(fd, msg, n))
+func (ep *EP) triggerOnReceive(fd int, msg *[]byte, n int) {
+	tp.Invoke(ep.getRequestItemForReceive(fd, msg, n))
 }
 
-func (s *Server) triggerOnClose(fd int) {
-	if s.OnClose != nil {
-		tp.Invoke(s.getRequestItemForClose(fd))
+func (ep *EP) triggerOnClose(fd int) {
+	if ep.OnClose != nil {
+		tp.Invoke(ep.getRequestItemForClose(fd))
 	}
 }
 
-func (s *Server) triggerOnError(code ErrorCode, err error) {
-	if s.OnError != nil {
-		tp.Invoke(s.getRequestItemForError(-1, code, err))
+func (ep *EP) triggerOnError(code ErrorCode, err error) {
+	if ep.OnError != nil {
+		tp.Invoke(ep.getRequestItemForError(-1, code, err))
 	}
 }
 
-func (s *Server) triggerOnErrorWithFd(fd int, code ErrorCode, err error) {
-	if s.OnError != nil {
-		tp.Invoke(s.getRequestItemForError(fd, code, err))
+func (ep *EP) triggerOnErrorWithFd(fd int, code ErrorCode, err error) {
+	if ep.OnError != nil {
+		tp.Invoke(ep.getRequestItemForError(fd, code, err))
 	}
 }
 
-func (s *Server) newRequestPool() sync.Pool {
+func (ep *EP) newRequestPool() sync.Pool {
 	var p = sync.Pool{
 		New: func() interface{} {
 			return &request{}
@@ -50,20 +50,20 @@ func (s *Server) newRequestPool() sync.Pool {
 	return p
 }
 
-func (s *Server) getRequestItem() *request {
+func (ep *EP) getRequestItem() *request {
 	var item = rp.Get()
 	return item.(*request)
 }
 
-func (s *Server) getRequestItemForAccept(fd int) *request {
-	var item = s.getRequestItem()
+func (ep *EP) getRequestItemForAccept(fd int) *request {
+	var item = ep.getRequestItem()
 	item.Op = OP_ACCEPT
 	item.Fd = fd
 	return item
 }
 
-func (s *Server) getRequestItemForReceive(fd int, msg *[]byte, n int) *request {
-	var item = s.getRequestItem()
+func (ep *EP) getRequestItemForReceive(fd int, msg *[]byte, n int) *request {
+	var item = ep.getRequestItem()
 	item.Op = OP_RECEIVE
 	item.Fd = fd
 	item.Msg = *msg
@@ -71,15 +71,15 @@ func (s *Server) getRequestItemForReceive(fd int, msg *[]byte, n int) *request {
 	return item
 }
 
-func (s *Server) getRequestItemForClose(fd int) *request {
-	var item = s.getRequestItem()
+func (ep *EP) getRequestItemForClose(fd int) *request {
+	var item = ep.getRequestItem()
 	item.Op = OP_CLOSE
 	item.Fd = fd
 	return item
 }
 
-func (s *Server) getRequestItemForError(fd int, errCode ErrorCode, err error) *request {
-	var item = s.getRequestItem()
+func (ep *EP) getRequestItemForError(fd int, errCode ErrorCode, err error) *request {
+	var item = ep.getRequestItem()
 	item.Op = OP_ERROR
 	item.Fd = fd
 	item.ErrCode = errCode

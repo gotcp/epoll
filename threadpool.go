@@ -4,20 +4,20 @@ import (
 	"github.com/wuyongjia/threadpool"
 )
 
-func (s *Server) newThreadPool() *threadpool.Pool {
-	var p = threadpool.NewWithFunc(s.NumberOfThreads, s.MaxQueueLength, func(payload interface{}) {
+func (ep *EP) newThreadPool() *threadpool.Pool {
+	var p = threadpool.NewWithFunc(ep.NumberOfThreads, ep.MaxQueueLength, func(payload interface{}) {
 		var req, ok = payload.(*request)
 		if ok {
 			switch req.Op {
 			case OP_RECEIVE:
-				s.OnReceive(req.Msg[:req.N], req.Fd)
+				ep.OnReceive(req.Msg[:req.N], req.Fd)
 				bp.Put(&req.Msg)
 			case OP_ACCEPT:
-				s.OnAccept(req.Fd)
+				ep.OnAccept(req.Fd)
 			case OP_CLOSE:
-				s.OnClose(req.Fd)
+				ep.OnClose(req.Fd)
 			case OP_ERROR:
-				s.OnError(req.Fd, req.ErrCode, req.Err)
+				ep.OnError(req.Fd, req.ErrCode, req.Err)
 			}
 			rp.Put(req)
 		}

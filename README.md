@@ -41,7 +41,7 @@ func OnError(fd int, code epoll.ErrorCode, err error) {
 	}
 }
 
-var server *epoll.Server
+var ep *epoll.EP
 
 func main() {
 	var err error
@@ -56,19 +56,19 @@ func main() {
 	}
 
 	// parameters: host, port, readBuffer, numberOfThreads, maxQueueLength
-	server, err = epoll.New("127.0.0.1", 8001, 1024, 3000, 100000)
+	ep, err = epoll.New(1024, 3000, 100000)
 	if err != nil {
 		panic(err)
 	}
-	defer server.Stop()
+	defer ep.Stop()
 
-	server.SetTimeout(int(5 * time.Second))
+	ep.SetTimeout(int(5 * time.Second))
 
-	server.OnReceive = OnReceive // must have
-	server.OnAccept = OnAccept   // optional
-	server.OnClose = OnClose     // optional
-	server.OnError = OnError     // optional
+	ep.OnReceive = OnReceive // must have
+	ep.OnAccept = OnAccept   // optional
+	ep.OnClose = OnClose     // optional
+	ep.OnError = OnError     // optional
 
-	server.Start()
+	ep.Start("127.0.0.1", 8001)
 }
 ```

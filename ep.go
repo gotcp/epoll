@@ -1,6 +1,6 @@
 package epoll
 
-type Server struct {
+type EP struct {
 	Host            string
 	Port            int
 	Epfd            int
