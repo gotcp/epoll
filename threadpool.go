@@ -10,7 +10,7 @@ func (ep *EP) newThreadPool() *threadpool.Pool {
 		if ok {
 			switch req.Op {
 			case OP_RECEIVE:
-				ep.OnReceive(req.Msg[:req.N], req.Fd)
+				ep.OnReceive(req.Fd, req.Msg[:req.N])
 				bp.Put(&req.Msg)
 			case OP_ACCEPT:
 				ep.OnAccept(req.Fd)

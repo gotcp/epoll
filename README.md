@@ -20,7 +20,7 @@ func OnAccept(fd int) {
 }
 
 // Asynchronous event
-func OnReceive(msg []byte, fd int) {
+func OnReceive(fd int, msg []byte) {
 	var err = epoll.Write(fd, msg)
 	if err != nil {
 		fmt.Printf("OnReceive -> %d, %v\n", fd, err)
