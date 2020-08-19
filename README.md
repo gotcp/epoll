@@ -69,12 +69,12 @@ func main() {
 	}
 	defer ep.Stop()
 
-	// one of OnReceive or OnAccept1, it depends on the use of Start or Start1
-	ep.OnReceive = OnReceive // must have, when using Start
+	// one of OnAccept or OnAccept1, it depends on the use of ep.Start or ep.Start1
 	ep.OnAccept = OnAccept   // optional
+	ep.OnReceive = OnReceive // must have, when using Start
 	ep.OnClose = OnClose     // optional
-	ep.OnError = OnError 	 // optional
-	// ep.OnAccept1 = OnAccept1 // must have, when using Start1
+	ep.OnError = OnError     // optional
+	// ep.OnAccept1 = OnAccept1 // when using Start1
 
 	// use pure EPOLL
 	ep.Start("127.0.0.1", 8001)
