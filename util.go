@@ -2,8 +2,6 @@ package epoll
 
 import (
 	"context"
-	"net"
-	"reflect"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -29,11 +27,4 @@ func WriteWithTimeout(fd int, msg []byte, timeout time.Duration) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-}
-
-func GetConnFd(conn net.Conn) int {
-	var tcpConn = reflect.Indirect(reflect.ValueOf(conn)).FieldByName("conn")
-	var fdVal = tcpConn.FieldByName("fd")
-	var pfdVal = reflect.Indirect(fdVal).FieldByName("pfd")
-	return int(pfdVal.FieldByName("Sysfd").Int())
 }

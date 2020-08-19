@@ -1,8 +1,6 @@
 package epoll
 
 import (
-	"net"
-
 	"golang.org/x/sys/unix"
 )
 
@@ -26,14 +24,4 @@ func (ep *EP) Del(fd int) error {
 		return err
 	}
 	return nil
-}
-
-func (ep *EP) AddConn(conn net.Conn) (int, error) {
-	var fd = GetConnFd(conn)
-	return fd, ep.Add(fd)
-}
-
-func (ep *EP) CloseConn(conn net.Conn) {
-	var fd = GetConnFd(conn)
-	ep.CloseAction(fd)
 }

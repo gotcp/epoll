@@ -11,7 +11,6 @@ type EP struct {
 	MaxEpollEvents  int
 	Timeout         int
 	KeepAlive       int
-	OnAccept1       OnAcceptEvent1
 	OnAccept        OnAcceptEvent
 	OnReceive       OnReceiveEvent
 	OnClose         OnCloseEvent

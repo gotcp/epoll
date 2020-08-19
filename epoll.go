@@ -2,7 +2,6 @@ package epoll
 
 import (
 	"net"
-	"sync"
 
 	"golang.org/x/sys/unix"
 
@@ -16,7 +15,6 @@ const (
 
 var bp *bytespool.Pool  // []byte pool, return *[]byte
 var tp *threadpool.Pool // thread pool
-var rp sync.Pool        // request pool, return *request
 
 func New(readBuffer int, numberOfThreads int, maxQueueLength int) (*EP, error) {
 	var epfd, err = unix.EpollCreate1(0)
@@ -33,7 +31,6 @@ func New(readBuffer int, numberOfThreads int, maxQueueLength int) (*EP, error) {
 		Timeout:         -1,
 		KeepAlive:       0,
 		MaxEpollEvents:  DEFAULT_EPOLL_EVENTS,
-		OnAccept1:       nil,
 		OnAccept:        nil,
 		OnReceive:       nil,
 		OnClose:         nil,
@@ -42,7 +39,6 @@ func New(readBuffer int, numberOfThreads int, maxQueueLength int) (*EP, error) {
 
 	bp = bytespool.New(readBuffer)
 	tp = ep.newThreadPool()
-	rp = ep.newRequestPool()
 
 	return ep, nil
 }
@@ -73,14 +69,6 @@ func (ep *EP) Start(host string, port int) {
 
 // pure EPOLL, only listening, needs to use ep.Add(fd)
 func (ep *EP) Listen() {
-	ep.listen()
-}
-
-// use net.Listen
-func (ep *EP) Start1(host string, port int) {
-	ep.Host = host
-	ep.Port = port
-	go ep.tcpAccept(host, port)
 	ep.listen()
 }
 

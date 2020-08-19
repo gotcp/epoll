@@ -9,17 +9,18 @@ func (ep *EP) acceptAction() {
 	var fd int
 	for {
 		fd, _, err = unix.Accept(ep.Fd)
-		if err != nil {
+		if err == nil {
+			if err = ep.Add(fd); err != nil {
+				ep.triggerOnError(ERROR_ADD_CONNECTION, err)
+				continue
+			}
+			ep.triggerOnAccept(fd)
+		} else {
 			if err != unix.EAGAIN && err != unix.EWOULDBLOCK {
 				ep.triggerOnError(ERROR_ACCEPT, err)
 			}
 			break
 		}
-		if err = ep.Add(fd); err != nil {
-			ep.triggerOnError(ERROR_ADD_CONNECTION, err)
-			break
-		}
-		ep.triggerOnAccept(fd)
 	}
 }
 
