@@ -27,7 +27,8 @@ func OnAccept1(fd int, conn net.Conn) {
 
 // Asynchronous event
 func OnReceive(fd int, msg []byte, n int) {
-	var err = epoll.Write(fd, msg)
+	// var err = epoll.Write(fd, msg)
+	var err = epoll.WriteWithTimeout(fd, msg, 3*time.Second)
 	if err != nil {
 		fmt.Printf("OnReceive -> %d, %v\n", fd, err)
 	}
@@ -68,19 +69,14 @@ func main() {
 	}
 	defer ep.Stop()
 
-	ep.SetTimeout(int(5 * time.Second))
-
 	// one of OnReceive or OnAccept1, it depends on the use of Start or Start1
 	ep.OnReceive = OnReceive // must have, when using Start
 	ep.OnAccept = OnAccept   // optional
 	ep.OnClose = OnClose     // optional
-	ep.OnError = OnError     // optional
+	ep.OnError = OnError 	 // optional
 	// ep.OnAccept1 = OnAccept1 // must have, when using Start1
 
 	// use pure EPOLL
 	ep.Start("127.0.0.1", 8001)
- 
-	// use net.Listen
-	// ep.Start1("127.0.0.1", 8001)
 }
 ```
