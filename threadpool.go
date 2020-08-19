@@ -14,6 +14,8 @@ func (ep *EP) newThreadPool() *threadpool.Pool {
 				bp.Put(&req.Msg)
 			case OP_ACCEPT:
 				ep.OnAccept(req.Fd)
+			case OP_ACCEPT1:
+				ep.OnAccept1(req.Fd, req.Conn)
 			case OP_CLOSE:
 				ep.OnClose(req.Fd)
 			case OP_ERROR:

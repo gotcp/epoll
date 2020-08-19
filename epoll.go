@@ -23,7 +23,8 @@ func New(readBuffer int, numberOfThreads int, maxQueueLength int) (*EP, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &EP{
+
+	var ep = &EP{
 		Epfd:            epfd,
 		Fd:              -9,
 		ReadBuffer:      readBuffer,
@@ -32,11 +33,18 @@ func New(readBuffer int, numberOfThreads int, maxQueueLength int) (*EP, error) {
 		Timeout:         -1,
 		KeepAlive:       0,
 		MaxEpollEvents:  DEFAULT_EPOLL_EVENTS,
+		OnAccept1:       nil,
 		OnAccept:        nil,
 		OnReceive:       nil,
 		OnClose:         nil,
 		OnError:         nil,
-	}, nil
+	}
+
+	bp = bytespool.New(readBuffer)
+	tp = ep.newThreadPool()
+	rp = ep.newRequestPool()
+
+	return ep, nil
 }
 
 func (ep *EP) SetTimeout(n int) {
@@ -51,28 +59,28 @@ func (ep *EP) SetMaxEpollEvents(n int) {
 	ep.MaxEpollEvents = n
 }
 
+// pure EPOLL
 func (ep *EP) Start(host string, port int) {
-	var err error
-
 	ep.Host = host
 	ep.Port = port
 
+	var err error
 	if err = ep.InitEpoll(ep.Host, ep.Port); err != nil {
 		panic(err)
 	}
-
-	bp = bytespool.New(ep.ReadBuffer)
-	tp = ep.newThreadPool()
-	rp = ep.newRequestPool()
-
 	ep.listen()
 }
 
-func (ep *EP) StartListen() {
-	bp = bytespool.New(ep.ReadBuffer)
-	tp = ep.newThreadPool()
-	rp = ep.newRequestPool()
+// pure EPOLL, only listening, needs to use ep.Add(fd)
+func (ep *EP) Listen() {
+	ep.listen()
+}
 
+// use net.Listen
+func (ep *EP) Start1(host string, port int) {
+	ep.Host = host
+	ep.Port = port
+	go ep.tcpAccept(host, port)
 	ep.listen()
 }
 
@@ -120,8 +128,10 @@ func (ep *EP) InitEpoll(host string, port int) error {
 
 func (ep *EP) Stop() error {
 	var err error
-	if err = ep.Del(ep.Fd); err != nil {
-		return err
+	if ep.Fd > 0 {
+		if err = ep.Del(ep.Fd); err != nil {
+			return err
+		}
 	}
 	if err = unix.Close(ep.Epfd); err != nil {
 		return err

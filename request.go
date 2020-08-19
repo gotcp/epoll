@@ -1,6 +1,7 @@
 package epoll
 
 import (
+	"net"
 	"sync"
 )
 
@@ -9,8 +10,15 @@ type request struct {
 	Msg     []byte
 	N       int
 	Fd      int
+	Conn    net.Conn
 	ErrCode ErrorCode
 	Err     error
+}
+
+func (ep *EP) triggerOnAccept1(fd int, conn net.Conn) {
+	if ep.OnAccept1 != nil {
+		tp.Invoke(ep.getRequestItemForAccept1(fd, conn))
+	}
 }
 
 func (ep *EP) triggerOnAccept(fd int) {
@@ -53,6 +61,14 @@ func (ep *EP) newRequestPool() sync.Pool {
 func (ep *EP) getRequestItem() *request {
 	var item = rp.Get()
 	return item.(*request)
+}
+
+func (ep *EP) getRequestItemForAccept1(fd int, conn net.Conn) *request {
+	var item = ep.getRequestItem()
+	item.Op = OP_ACCEPT1
+	item.Fd = fd
+	item.Conn = conn
+	return item
 }
 
 func (ep *EP) getRequestItemForAccept(fd int) *request {
