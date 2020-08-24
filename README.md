@@ -57,7 +57,7 @@ func main() {
 	}
 
 	// parameters: host, port, readBuffer, numberOfThreads, maxQueueLength
-	ep, err = epoll.New(1024, 3000, 100000)
+	ep, err = epoll.New(4096, 3000, 100000)
 	if err != nil {
 		panic(err)
 	}
