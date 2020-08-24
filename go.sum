@@ -1,5 +1,5 @@
-github.com/wuyongjia/bytespool v1.0.0 h1:8/AAuQfzcg1zCSvGzmAnTiUsfF97peY7Q61yTNRRWfo=
-github.com/wuyongjia/bytespool v1.0.0/go.mod h1:QDoox0Xl0wzBIxCsXHVA/OnuQRsDRH/ON6wxU1t2aC8=
+github.com/wuyongjia/pool v1.0.1 h1:0kpUEEXR2/q9HwOykcYc3W4b+g3xLoDxRd/sjHfOGAM=
+github.com/wuyongjia/pool v1.0.1/go.mod h1:LSvXIqcXlHtbYLCnHd8IVBHNAAKQiMPdlAzFXKE5jtE=
 github.com/wuyongjia/threadpool v1.0.0 h1:RQRiWKfxwIgfa7FvJz1XLeHNVzCxF6NQ68oRuT9DZOE=
 github.com/wuyongjia/threadpool v1.0.0/go.mod h1:iGlzWzmpKa+RJGbVTWuqJtey8pe7FdC589GdU0FeTjI=
 golang.org/x/sys v0.0.0-20200808120158-1030fc2bf1d9 h1:yi1hN8dcqI9l8klZfy4B8mJvFmmAxJEePIQQFNSd7Cs=

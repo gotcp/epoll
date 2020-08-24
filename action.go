@@ -29,7 +29,12 @@ func (ep *EP) readAction(fd int) {
 	var msg *[]byte
 	var n int
 	for {
-		msg = bp.Get()
+		msg, err = ep.getBytesPoolItem()
+		if err != nil {
+			ep.CloseAction(fd)
+			ep.triggerOnError(ERROR_POOL_BUFFER, err)
+			break
+		}
 		n, err = unix.Read(fd, *msg)
 		if err == nil {
 			if n > 0 {

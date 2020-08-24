@@ -8,4 +8,5 @@ const (
 	ERROR_CLOSE_CONNECTION ErrorCode = 3
 	ERROR_EPOLL_WAIT       ErrorCode = 4
 	ERROR_STOP             ErrorCode = 5
+	ERROR_POOL_BUFFER      ErrorCode = 6
 )

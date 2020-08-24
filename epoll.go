@@ -5,7 +5,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/wuyongjia/bytespool"
+	"github.com/wuyongjia/pool"
 	"github.com/wuyongjia/threadpool"
 )
 
@@ -13,7 +13,7 @@ const (
 	DEFAULT_EPOLL_EVENTS = 2048
 )
 
-var bp *bytespool.Pool  // []byte pool, return *[]byte
+var bp *pool.Pool       // []byte pool, return *[]byte
 var tp *threadpool.Pool // thread pool
 
 func New(readBuffer int, numberOfThreads int, maxQueueLength int) (*EP, error) {
@@ -37,10 +37,27 @@ func New(readBuffer int, numberOfThreads int, maxQueueLength int) (*EP, error) {
 		OnError:         nil,
 	}
 
-	bp = bytespool.New(readBuffer)
+	bp = ep.newBytesPool(10*numberOfThreads, readBuffer)
 	tp = ep.newThreadPool()
 
 	return ep, nil
+}
+
+func (ep *EP) getBytesPoolItem() (*[]byte, error) {
+	var buf, err = bp.Get()
+	if err == nil {
+		return buf.(*[]byte), nil
+	} else {
+		return nil, err
+	}
+}
+
+func (ep *EP) newBytesPool(length, readBuffer int) *pool.Pool {
+	var p = pool.New(length, func() interface{} {
+		var buf = make([]byte, readBuffer)
+		return &buf
+	})
+	return p
 }
 
 func (ep *EP) SetTimeout(n int) {
