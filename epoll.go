@@ -37,7 +37,10 @@ func New(readBuffer int, numberOfThreads int, maxQueueLength int) (*EP, error) {
 		OnError:         nil,
 	}
 
-	bp = ep.newBytesPool(10*numberOfThreads, readBuffer)
+	bp = pool.New(10*numberOfThreads, func() interface{} {
+		var buf = make([]byte, readBuffer)
+		return &buf
+	})
 	tp = ep.newThreadPool()
 
 	return ep, nil
@@ -50,14 +53,6 @@ func (ep *EP) getBytesPoolItem() (*[]byte, error) {
 	} else {
 		return nil, err
 	}
-}
-
-func (ep *EP) newBytesPool(length, readBuffer int) *pool.Pool {
-	var p = pool.New(length, func() interface{} {
-		var buf = make([]byte, readBuffer)
-		return &buf
-	})
-	return p
 }
 
 func (ep *EP) SetTimeout(n int) {
