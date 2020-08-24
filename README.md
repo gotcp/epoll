@@ -14,7 +14,7 @@ import (
 	"github.com/gotcp/epoll"
 )
 
-// Asynchronous event, when using Start
+// Asynchronous event
 func OnAccept(fd int) {
 	fmt.Printf("OnAccept -> %d\n", fd)
 }
@@ -63,12 +63,11 @@ func main() {
 	}
 	defer ep.Stop()
 
-	ep.OnReceive = OnReceive // must have, when using Start
+	ep.OnReceive = OnReceive // must have
 	ep.OnError = OnError     // optional
 	ep.OnAccept = OnAccept   // optional
 	ep.OnClose = OnClose     // optional
 
-	// use pure EPOLL
 	ep.Start("127.0.0.1", 8001)
 }
 ```
