@@ -8,9 +8,9 @@ func (ep *EP) listen() {
 	var err error
 	var i, n int
 	var fd int
-	var events = make([]unix.EpollEvent, ep.MaxEpollEvents)
+	var events = make([]unix.EpollEvent, ep.EpollEvents)
 	for {
-		n, err = unix.EpollWait(ep.Epfd, events, ep.Timeout)
+		n, err = unix.EpollWait(ep.Epfd, events, ep.WaitTimeout)
 		if err == nil {
 			for i = 0; i < n; i++ {
 				fd = int(events[i].Fd)

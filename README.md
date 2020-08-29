@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"syscall"
 	"time"
-  
+
 	"github.com/gotcp/epoll"
 )
 
@@ -20,7 +20,7 @@ func OnAccept(fd int) {
 }
 
 // Asynchronous event
-func OnReceive(fd int, msg []byte, n int) {
+func OnReceive(sequenceId int, fd int, msg []byte, n int) {
 	// var err = epoll.Write(fd, msg)
 	var err = epoll.WriteWithTimeout(fd, msg, 3*time.Second)
 	if err != nil {
@@ -28,13 +28,13 @@ func OnReceive(fd int, msg []byte, n int) {
 	}
 }
 
-// Asynchronous event
-func OnClose(fd int) {
+// Synchronous event. This event will be triggered before closing fd
+func OnClose(sequenceId int, fd int) {
 	fmt.Printf("OnClose -> %d\n", fd)
 }
 
 // Asynchronous event
-func OnError(fd int, code epoll.ErrorCode, err error) {
+func OnError(sequenceId int, fd int, code epoll.ErrorCode, err error) {
 	if fd > 0 && code == epoll.ERROR_CLOSE_CONNECTION {
 		fmt.Printf("OnError -> %d, %d, %v\n", fd, code, err)
 	} else {
@@ -56,8 +56,8 @@ func main() {
 		panic(err)
 	}
 
-	// parameters: host, port, readBuffer, numberOfThreads, maxQueueLength
-	ep, err = epoll.New(4096, 3000, 100000)
+	// parameters: readBuffer, threads, queueLength
+	ep, err = epoll.New(2048, 3000, 4096)
 	if err != nil {
 		panic(err)
 	}

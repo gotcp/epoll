@@ -1,6 +1,7 @@
 package epoll
 
 import (
+	"errors"
 	"net"
 
 	"golang.org/x/sys/unix"
@@ -10,68 +11,73 @@ import (
 )
 
 const (
-	DEFAULT_EPOLL_EVENTS = 2048
+	DEFAULT_EPOLL_EVENTS = 4096
 )
 
-var bp *pool.Pool       // []byte pool, return *[]byte
-var tp *threadpool.Pool // thread pool
+var bp *pool.Pool                       // []byte pool, return *[]byte
+var tpsequence *threadpool.PoolSequence // thread pool sequence
 
-func New(readBuffer int, numberOfThreads int, maxQueueLength int) (*EP, error) {
+func New(readBuffer int, threads int, queueLength int) (*EP, error) {
 	var epfd, err = unix.EpollCreate1(0)
 	if err != nil {
 		return nil, err
 	}
 
 	var ep = &EP{
-		Epfd:            epfd,
-		Fd:              -9,
-		ReadBuffer:      readBuffer,
-		NumberOfThreads: numberOfThreads,
-		MaxQueueLength:  maxQueueLength,
-		Timeout:         -1,
-		KeepAlive:       0,
-		MaxEpollEvents:  DEFAULT_EPOLL_EVENTS,
-		OnAccept:        nil,
-		OnReceive:       nil,
-		OnClose:         nil,
-		OnError:         nil,
+		Epfd:        epfd,
+		Fd:          -9,
+		ReadBuffer:  readBuffer,
+		Threads:     threads,
+		QueueLength: queueLength,
+		WaitTimeout: -1,
+		KeepAlive:   0,
+		EpollEvents: DEFAULT_EPOLL_EVENTS,
+		OnAccept:    nil,
+		OnReceive:   nil,
+		OnClose:     nil,
+		OnError:     nil,
 	}
 
-	bp = pool.New(10*numberOfThreads, func() interface{} {
+	bp = pool.New(20*threads, func() interface{} {
 		var buf = make([]byte, readBuffer)
 		return &buf
 	})
-	tp = ep.newThreadPool()
+
+	tpsequence = ep.newThreadPoolSequence()
 
 	return ep, nil
 }
 
 func (ep *EP) getBytesPoolItem() (*[]byte, error) {
-	var buf, err = bp.Get()
+	var iface, err = bp.Get()
 	if err == nil {
-		return buf.(*[]byte), nil
+		var buffer, ok = iface.(*[]byte)
+		if ok {
+			return buffer, nil
+		} else {
+			return nil, errors.New("get pool buffer error")
+		}
 	} else {
 		return nil, err
 	}
 }
 
-func (ep *EP) SetTimeout(n int) {
-	ep.Timeout = n
+func (ep *EP) SetWaitTimeout(n int) {
+	ep.WaitTimeout = n
 }
 
 func (ep *EP) SetKeepAlive(n int) {
 	ep.KeepAlive = n
 }
 
-func (ep *EP) SetMaxEpollEvents(n int) {
-	ep.MaxEpollEvents = n
+func (ep *EP) SetEpollEvents(n int) {
+	ep.EpollEvents = n
 }
 
 // pure EPOLL
 func (ep *EP) Start(host string, port int) {
 	ep.Host = host
 	ep.Port = port
-
 	var err error
 	if err = ep.InitEpoll(ep.Host, ep.Port); err != nil {
 		panic(err)
@@ -129,12 +135,13 @@ func (ep *EP) InitEpoll(host string, port int) error {
 func (ep *EP) Stop() error {
 	var err error
 	if ep.Fd > 0 {
-		if err = ep.Del(ep.Fd); err != nil {
+		if err = ep.Delete(ep.Fd); err != nil {
 			return err
 		}
 	}
 	if err = unix.Close(ep.Epfd); err != nil {
 		return err
 	}
+	tpsequence.Close()
 	return nil
 }

@@ -15,13 +15,10 @@ func (ep *EP) Add(fd int) error {
 	return nil
 }
 
-func (ep *EP) Del(fd int) error {
-	var err error
-	if err = unix.EpollCtl(ep.Epfd, unix.EPOLL_CTL_DEL, fd, nil); err != nil {
-		return err
-	}
-	if err = unix.Close(fd); err != nil {
-		return err
-	}
-	return nil
+func (ep *EP) Delete(fd int) error {
+	return unix.EpollCtl(ep.Epfd, unix.EPOLL_CTL_DEL, fd, nil)
+}
+
+func (ep *EP) Close(fd int) error {
+	return unix.Close(fd)
 }
