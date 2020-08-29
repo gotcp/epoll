@@ -13,7 +13,7 @@ func (ep *EP) newThreadPoolSequence() *threadpool.PoolSequence {
 				ep.OnAccept(req.Fd)
 			case OP_RECEIVE:
 				ep.OnReceive(req.SequenceId, req.Fd, req.Msg[:req.N], req.N)
-				bp.Put(&req.Msg)
+				ep.bufferPool.Put(&req.Msg)
 			case OP_CLOSE:
 				if ep.OnClose != nil {
 					ep.OnClose(req.SequenceId, req.Fd)

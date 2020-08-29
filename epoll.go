@@ -7,22 +7,17 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/wuyongjia/pool"
-	"github.com/wuyongjia/threadpool"
 )
 
 const (
 	DEFAULT_EPOLL_EVENTS = 4096
 )
 
-var bp *pool.Pool                       // []byte pool, return *[]byte
-var tpsequence *threadpool.PoolSequence // thread pool sequence
-
 func New(readBuffer int, threads int, queueLength int) (*EP, error) {
 	var epfd, err = unix.EpollCreate1(0)
 	if err != nil {
 		return nil, err
 	}
-
 	var ep = &EP{
 		Epfd:        epfd,
 		Fd:          -9,
@@ -37,19 +32,16 @@ func New(readBuffer int, threads int, queueLength int) (*EP, error) {
 		OnClose:     nil,
 		OnError:     nil,
 	}
-
-	bp = pool.New(20*threads, func() interface{} {
+	ep.bufferPool = pool.New(20*threads, func() interface{} {
 		var buf = make([]byte, readBuffer)
 		return &buf
 	})
-
-	tpsequence = ep.newThreadPoolSequence()
-
+	ep.threadPoolSequence = ep.newThreadPoolSequence()
 	return ep, nil
 }
 
 func (ep *EP) getBytesPoolItem() (*[]byte, error) {
-	var iface, err = bp.Get()
+	var iface, err = ep.bufferPool.Get()
 	if err == nil {
 		var buffer, ok = iface.(*[]byte)
 		if ok {
@@ -142,6 +134,6 @@ func (ep *EP) Stop() error {
 	if err = unix.Close(ep.Epfd); err != nil {
 		return err
 	}
-	tpsequence.Close()
+	ep.threadPoolSequence.Close()
 	return nil
 }

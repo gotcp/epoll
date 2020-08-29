@@ -28,7 +28,7 @@ func (ep *EP) readAction(fd int) {
 	var err error
 	var msg *[]byte
 	var n int
-	var sequenceId = tpsequence.GetSequenceId()
+	var sequenceId = ep.threadPoolSequence.GetSequenceId()
 	for {
 		msg, err = ep.getBytesPoolItem()
 		if err != nil {
@@ -41,12 +41,12 @@ func (ep *EP) readAction(fd int) {
 			if n > 0 {
 				ep.triggerOnReceiveSequence(sequenceId, fd, msg, n)
 			} else {
-				bp.Put(msg)
+				ep.bufferPool.Put(msg)
 				ep.closeActionSequence(sequenceId, fd)
 				break
 			}
 		} else {
-			bp.Put(msg)
+			ep.bufferPool.Put(msg)
 			break
 		}
 	}

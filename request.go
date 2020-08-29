@@ -16,43 +16,43 @@ type request struct {
 
 func (ep *EP) triggerOnAccept(fd int) {
 	if ep.OnAccept != nil {
-		tpsequence.Invoke(-1, ep.getRequestItemForAccept(fd))
+		ep.threadPoolSequence.Invoke(-1, ep.getRequestItemForAccept(fd))
 	}
 }
 
 func (ep *EP) triggerOnClose(fd int) {
-	tpsequence.Invoke(-1, ep.getRequestItemForClose(-1, fd))
+	ep.threadPoolSequence.Invoke(-1, ep.getRequestItemForClose(-1, fd))
 }
 
 func (ep *EP) triggerOnError(code ErrorCode, err error) {
 	if ep.OnError != nil {
-		tpsequence.Invoke(-1, ep.getRequestItemForError(-1, -1, code, err))
+		ep.threadPoolSequence.Invoke(-1, ep.getRequestItemForError(-1, -1, code, err))
 	}
 }
 
 func (ep *EP) triggerOnErrorWithFd(fd int, code ErrorCode, err error) {
 	if ep.OnError != nil {
-		tpsequence.Invoke(-1, ep.getRequestItemForError(-1, fd, code, err))
+		ep.threadPoolSequence.Invoke(-1, ep.getRequestItemForError(-1, fd, code, err))
 	}
 }
 
 func (ep *EP) triggerOnReceiveSequence(sequenceId int, fd int, msg *[]byte, n int) {
-	tpsequence.Invoke(sequenceId, ep.getRequestItemForReceive(sequenceId, fd, msg, n))
+	ep.threadPoolSequence.Invoke(sequenceId, ep.getRequestItemForReceive(sequenceId, fd, msg, n))
 }
 
 func (ep *EP) triggerOnCloseSequence(sequenceId int, fd int) {
-	tpsequence.Invoke(sequenceId, ep.getRequestItemForClose(sequenceId, fd))
+	ep.threadPoolSequence.Invoke(sequenceId, ep.getRequestItemForClose(sequenceId, fd))
 }
 
 func (ep *EP) triggerOnErrorSequence(sequenceId int, code ErrorCode, err error) {
 	if ep.OnError != nil {
-		tpsequence.Invoke(sequenceId, ep.getRequestItemForError(sequenceId, -1, code, err))
+		ep.threadPoolSequence.Invoke(sequenceId, ep.getRequestItemForError(sequenceId, -1, code, err))
 	}
 }
 
 func (ep *EP) triggerOnErrorWithFdSequence(sequenceId int, fd int, code ErrorCode, err error) {
 	if ep.OnError != nil {
-		tpsequence.Invoke(sequenceId, ep.getRequestItemForError(sequenceId, fd, code, err))
+		ep.threadPoolSequence.Invoke(sequenceId, ep.getRequestItemForError(sequenceId, fd, code, err))
 	}
 }
 
