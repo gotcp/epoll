@@ -15,9 +15,9 @@ func (ep *EP) listen() {
 			for i = 0; i < n; i++ {
 				fd = int(events[i].Fd)
 				if fd == ep.Fd {
-					ep.acceptAction()
+					ep.acceptFunc()
 				} else if events[i].Events&unix.EPOLLIN != 0 {
-					ep.readAction(fd)
+					ep.readFunc(fd)
 				} else {
 					if fd > 0 {
 						ep.CloseAction(fd)
@@ -26,7 +26,7 @@ func (ep *EP) listen() {
 			}
 		} else {
 			if err != unix.EINTR {
-				ep.triggerOnError(ERROR_EPOLL_WAIT, err)
+				ep.TriggerOnError(ERROR_EPOLL_WAIT, err)
 				break
 			}
 		}

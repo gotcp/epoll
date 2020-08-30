@@ -18,6 +18,8 @@ type EP struct {
 	KeepAlive          int
 	bufferPool         *pool.Pool               // []byte pool, return *[]byte
 	threadPoolSequence *threadpool.PoolSequence // thread pool sequence
+	acceptFunc         EpollAcceptFunc
+	readFunc           EpollReadFunc
 	OnAccept           OnAcceptEvent
 	OnReceive          OnReceiveEvent
 	OnClose            OnCloseEvent

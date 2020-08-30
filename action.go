@@ -11,13 +11,13 @@ func (ep *EP) acceptAction() {
 		fd, _, err = unix.Accept(ep.Fd)
 		if err == nil {
 			if err = ep.Add(fd); err == nil {
-				ep.triggerOnAccept(fd)
+				ep.TriggerOnAccept(fd)
 			} else {
-				ep.triggerOnError(ERROR_ADD_CONNECTION, err)
+				ep.TriggerOnError(ERROR_ADD_CONNECTION, err)
 			}
 		} else {
 			if err != unix.EAGAIN && err != unix.EWOULDBLOCK {
-				ep.triggerOnError(ERROR_ACCEPT, err)
+				ep.TriggerOnError(ERROR_ACCEPT, err)
 			}
 			break
 		}
@@ -30,19 +30,19 @@ func (ep *EP) readAction(fd int) {
 	var n int
 	var sequenceId = ep.threadPoolSequence.GetSequenceId()
 	for {
-		msg, err = ep.getBytesPoolItem()
+		msg, err = ep.GetBufferPoolItem()
 		if err != nil {
-			ep.triggerOnErrorSequence(sequenceId, ERROR_POOL_BUFFER, err)
-			ep.closeActionSequence(sequenceId, fd)
+			ep.TriggerOnErrorSequence(sequenceId, ERROR_POOL_BUFFER, err)
+			ep.CloseActionSequence(sequenceId, fd)
 			break
 		}
 		n, err = unix.Read(fd, *msg)
 		if err == nil {
 			if n > 0 {
-				ep.triggerOnReceiveSequence(sequenceId, fd, msg, n)
+				ep.TriggerOnReceiveSequence(sequenceId, fd, msg, n)
 			} else {
 				ep.bufferPool.Put(msg)
-				ep.closeActionSequence(sequenceId, fd)
+				ep.CloseActionSequence(sequenceId, fd)
 				break
 			}
 		} else {
@@ -55,13 +55,13 @@ func (ep *EP) readAction(fd int) {
 func (ep *EP) CloseAction(fd int) {
 	var err error
 	if err = ep.Delete(fd); err == nil {
-		ep.triggerOnClose(fd)
+		ep.TriggerOnClose(fd)
 	}
 }
 
-func (ep *EP) closeActionSequence(sequenceId int, fd int) {
+func (ep *EP) CloseActionSequence(sequenceId int, fd int) {
 	var err error
 	if err = ep.Delete(fd); err == nil {
-		ep.triggerOnCloseSequence(sequenceId, fd)
+		ep.TriggerOnCloseSequence(sequenceId, fd)
 	}
 }

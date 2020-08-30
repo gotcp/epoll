@@ -14,43 +14,43 @@ type request struct {
 	Err        error
 }
 
-func (ep *EP) triggerOnAccept(fd int) {
+func (ep *EP) TriggerOnAccept(fd int) {
 	if ep.OnAccept != nil {
 		ep.threadPoolSequence.Invoke(-1, ep.getRequestItemForAccept(fd))
 	}
 }
 
-func (ep *EP) triggerOnClose(fd int) {
+func (ep *EP) TriggerOnClose(fd int) {
 	ep.threadPoolSequence.Invoke(-1, ep.getRequestItemForClose(-1, fd))
 }
 
-func (ep *EP) triggerOnError(code ErrorCode, err error) {
+func (ep *EP) TriggerOnError(code ErrorCode, err error) {
 	if ep.OnError != nil {
 		ep.threadPoolSequence.Invoke(-1, ep.getRequestItemForError(-1, -1, code, err))
 	}
 }
 
-func (ep *EP) triggerOnErrorWithFd(fd int, code ErrorCode, err error) {
+func (ep *EP) TriggerOnErrorWithFd(fd int, code ErrorCode, err error) {
 	if ep.OnError != nil {
 		ep.threadPoolSequence.Invoke(-1, ep.getRequestItemForError(-1, fd, code, err))
 	}
 }
 
-func (ep *EP) triggerOnReceiveSequence(sequenceId int, fd int, msg *[]byte, n int) {
+func (ep *EP) TriggerOnReceiveSequence(sequenceId int, fd int, msg *[]byte, n int) {
 	ep.threadPoolSequence.Invoke(sequenceId, ep.getRequestItemForReceive(sequenceId, fd, msg, n))
 }
 
-func (ep *EP) triggerOnCloseSequence(sequenceId int, fd int) {
+func (ep *EP) TriggerOnCloseSequence(sequenceId int, fd int) {
 	ep.threadPoolSequence.Invoke(sequenceId, ep.getRequestItemForClose(sequenceId, fd))
 }
 
-func (ep *EP) triggerOnErrorSequence(sequenceId int, code ErrorCode, err error) {
+func (ep *EP) TriggerOnErrorSequence(sequenceId int, code ErrorCode, err error) {
 	if ep.OnError != nil {
 		ep.threadPoolSequence.Invoke(sequenceId, ep.getRequestItemForError(sequenceId, -1, code, err))
 	}
 }
 
-func (ep *EP) triggerOnErrorWithFdSequence(sequenceId int, fd int, code ErrorCode, err error) {
+func (ep *EP) TriggerOnErrorWithFdSequence(sequenceId int, fd int, code ErrorCode, err error) {
 	if ep.OnError != nil {
 		ep.threadPoolSequence.Invoke(sequenceId, ep.getRequestItemForError(sequenceId, fd, code, err))
 	}

@@ -1,7 +1,6 @@
 package epoll
 
 import (
-	"errors"
 	"net"
 
 	"golang.org/x/sys/unix"
@@ -12,6 +11,9 @@ import (
 const (
 	DEFAULT_EPOLL_EVENTS = 4096
 )
+
+type EpollAcceptFunc func()
+type EpollReadFunc func(fd int)
 
 func New(readBuffer int, threads int, queueLength int) (*EP, error) {
 	var epfd, err = unix.EpollCreate1(0)
@@ -32,26 +34,25 @@ func New(readBuffer int, threads int, queueLength int) (*EP, error) {
 		OnClose:     nil,
 		OnError:     nil,
 	}
+
+	ep.acceptFunc = ep.acceptAction
+	ep.readFunc = ep.readAction
+
 	ep.bufferPool = pool.New(20*threads, func() interface{} {
 		var buf = make([]byte, readBuffer)
 		return &buf
 	})
 	ep.threadPoolSequence = ep.newThreadPoolSequence()
+
 	return ep, nil
 }
 
-func (ep *EP) getBytesPoolItem() (*[]byte, error) {
-	var iface, err = ep.bufferPool.Get()
-	if err == nil {
-		var buffer, ok = iface.(*[]byte)
-		if ok {
-			return buffer, nil
-		} else {
-			return nil, errors.New("get pool buffer error")
-		}
-	} else {
-		return nil, err
-	}
+func (ep *EP) HijackEpollAccept(acceptFunc EpollAcceptFunc) {
+	ep.acceptFunc = acceptFunc
+}
+
+func (ep *EP) HijackEpollRead(readFunc EpollReadFunc) {
+	ep.readFunc = readFunc
 }
 
 func (ep *EP) SetWaitTimeout(n int) {
