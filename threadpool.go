@@ -12,15 +12,15 @@ func (ep *EP) newThreadPoolSequence() *threadpool.PoolSequence {
 			case OP_ACCEPT:
 				ep.OnAccept(req.Fd)
 			case OP_RECEIVE:
-				ep.OnReceive(req.SequenceId, req.Fd, req.Msg[:req.N], req.N)
-				ep.bufferPool.Put(&req.Msg)
+				ep.OnReceive(req.Fd, req.Msg[:req.N], req.N)
+				ep.PutBufferPoolItem(&req.Msg)
 			case OP_CLOSE:
 				if ep.OnClose != nil {
-					ep.OnClose(req.SequenceId, req.Fd)
+					ep.OnClose(req.Fd)
 				}
 				ep.Close(req.Fd)
 			case OP_ERROR:
-				ep.OnError(req.SequenceId, req.Fd, req.ErrCode, req.Err)
+				ep.OnError(req.Fd, req.ErrCode, req.Err)
 			}
 		}
 	})

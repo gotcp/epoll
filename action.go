@@ -28,11 +28,11 @@ func (ep *EP) readAction(fd int) {
 	var err error
 	var msg *[]byte
 	var n int
-	var sequenceId = ep.threadPoolSequence.GetSequenceId()
+	var sequenceId = ep.GetSequenceId()
 	for {
 		msg, err = ep.GetBufferPoolItem()
 		if err != nil {
-			ep.TriggerOnErrorSequence(sequenceId, ERROR_POOL_BUFFER, err)
+			ep.TriggerOnErrorWithFdSequence(sequenceId, fd, ERROR_POOL_BUFFER, err)
 			ep.CloseActionSequence(sequenceId, fd)
 			break
 		}
@@ -41,12 +41,12 @@ func (ep *EP) readAction(fd int) {
 			if n > 0 {
 				ep.TriggerOnReceiveSequence(sequenceId, fd, msg, n)
 			} else {
-				ep.bufferPool.Put(msg)
+				ep.PutBufferPoolItem(msg)
 				ep.CloseActionSequence(sequenceId, fd)
 				break
 			}
 		} else {
-			ep.bufferPool.Put(msg)
+			ep.PutBufferPoolItem(msg)
 			break
 		}
 	}
@@ -60,8 +60,7 @@ func (ep *EP) CloseAction(fd int) {
 }
 
 func (ep *EP) CloseActionSequence(sequenceId int, fd int) {
-	var err error
-	if err = ep.Delete(fd); err == nil {
+	if ep.Delete(fd) == nil {
 		ep.TriggerOnCloseSequence(sequenceId, fd)
 	}
 }

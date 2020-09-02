@@ -20,7 +20,7 @@ func OnAccept(fd int) {
 }
 
 // Asynchronous event
-func OnReceive(sequenceId int, fd int, msg []byte, n int) {
+func OnReceive(fd int, msg []byte, n int) {
 	// var err = epoll.Write(fd, msg)
 	var err = epoll.WriteWithTimeout(fd, msg, 3*time.Second)
 	if err != nil {
@@ -28,18 +28,14 @@ func OnReceive(sequenceId int, fd int, msg []byte, n int) {
 	}
 }
 
-// Synchronous event. This event will be triggered before closing fd
-func OnClose(sequenceId int, fd int) {
+// Synchronous event. The event will be triggered before closing fd
+func OnClose(fd int) {
 	fmt.Printf("OnClose -> %d\n", fd)
 }
 
 // Asynchronous event
-func OnError(sequenceId int, fd int, code epoll.ErrorCode, err error) {
-	if fd > 0 && code == epoll.ERROR_CLOSE_CONNECTION {
-		fmt.Printf("OnError -> %d, %d, %v\n", fd, code, err)
-	} else {
-		fmt.Printf("OnError -> %d, %v\n", code, err)
-	}
+func OnError(fd int, code epoll.ErrorCode, err error) {
+	fmt.Printf("OnError -> %d, %d, %v\n", fd, code, err)
 }
 
 var ep *epoll.EP
