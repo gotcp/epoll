@@ -1,6 +1,8 @@
 package epoll
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -26,6 +28,31 @@ func (ep *EP) Delete(fd int) error {
 
 func (ep *EP) CloseFd(fd int) error {
 	return unix.Close(fd)
+}
+
+// called externally
+func (ep *EP) EstablishConnection(fd int) error {
+	var sequenceId = ep.GetSequenceId()
+	ep.AddConnection(fd, sequenceId)
+	var err error
+	if err = ep.Add(fd); err != nil {
+		ep.DeleteConnection(fd)
+	}
+	return err
+}
+
+// called externally
+func (ep *EP) DestroyConnection(fd int) error {
+	var err error
+	var sequenceId = ep.GetConnectionSequenceId(fd)
+	if sequenceId < 0 {
+		err = errors.New(fmt.Sprintf("%d not found in the list", fd))
+		return err
+	}
+	if err = ep.Delete(fd); err == nil {
+		ep.InvokeClose(sequenceId, fd)
+	}
+	return err
 }
 
 func (ep *EP) Close(fd int) error {
