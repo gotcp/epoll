@@ -2,6 +2,7 @@ package epoll
 
 import (
 	"net"
+	"sync"
 
 	"golang.org/x/sys/unix"
 
@@ -9,54 +10,60 @@ import (
 )
 
 const (
-	DEFAULT_EPOLL_EVENTS = 4096
+	DEFAULT_EPOLL_EVENTS        = 4096
+	DEFAULT_EPOLL_READ_TIMEOUT  = 5
+	DEFAULT_EPOLL_WRITE_TIMEOUT = 5
 )
-
-type EpollAcceptFunc func()
-type EpollReadFunc func(fd int)
 
 func New(readBuffer int, threads int, queueLength int) (*EP, error) {
 	var epfd, err = unix.EpollCreate1(0)
 	if err != nil {
 		return nil, err
 	}
-	var ep = &EP{
-		Epfd:        epfd,
-		Fd:          -9,
-		ReadBuffer:  readBuffer,
-		Threads:     threads,
-		QueueLength: queueLength,
-		WaitTimeout: -1,
-		KeepAlive:   0,
-		EpollEvents: DEFAULT_EPOLL_EVENTS,
-		OnAccept:    nil,
-		OnReceive:   nil,
-		OnClose:     nil,
-		OnError:     nil,
+	var conns = &Conns{
+		List: make(map[int]*Conn),
+		Lock: &sync.RWMutex{},
 	}
-
-	ep.acceptFunc = ep.acceptAction
-	ep.readFunc = ep.readAction
-
+	var ep = &EP{
+		Epfd:         epfd,
+		Fd:           -9,
+		Connections:  conns,
+		ReadBuffer:   readBuffer,
+		WriteBuffer:  readBuffer,
+		WaitTimeout:  -1,
+		ReadTimeout:  DEFAULT_EPOLL_READ_TIMEOUT,
+		WriteTimeout: DEFAULT_EPOLL_WRITE_TIMEOUT,
+		Threads:      threads,
+		QueueLength:  queueLength,
+		KeepAlive:    0,
+		EpollEvents:  DEFAULT_EPOLL_EVENTS,
+		OnAccept:     nil,
+		OnReceive:    nil,
+		OnClose:      nil,
+		OnError:      nil,
+	}
 	ep.bufferPool = pool.New(20*threads, func() interface{} {
 		var buf = make([]byte, readBuffer)
 		return &buf
 	})
 	ep.threadPoolSequence = ep.newThreadPoolSequence()
-
 	return ep, nil
-}
-
-func (ep *EP) HijackEpollAccept(acceptFunc EpollAcceptFunc) {
-	ep.acceptFunc = acceptFunc
-}
-
-func (ep *EP) HijackEpollRead(readFunc EpollReadFunc) {
-	ep.readFunc = readFunc
 }
 
 func (ep *EP) SetWaitTimeout(n int) {
 	ep.WaitTimeout = n
+}
+
+func (ep *EP) SetReadTimeout(n int) {
+	ep.ReadTimeout = n
+}
+
+func (ep *EP) SetWriteTimeout(n int) {
+	ep.WriteTimeout = n
+}
+
+func (ep *EP) SetWriteBuffer(n int) {
+	ep.WriteBuffer = n
 }
 
 func (ep *EP) SetKeepAlive(n int) {
@@ -126,14 +133,14 @@ func (ep *EP) InitEpoll(host string, port int) error {
 }
 
 func (ep *EP) Stop() error {
-	var err error
-	if ep.Fd > 0 {
-		if err = ep.Delete(ep.Fd); err != nil {
-			return err
+	ep.CloseAll()
+	if ep.Fd >= 0 {
+		if ep.Delete(ep.Fd) == nil {
+			ep.Close(ep.Fd)
 		}
 	}
-	if err = unix.Close(ep.Epfd); err != nil {
-		return err
+	if ep.Epfd >= 0 {
+		unix.Close(ep.Epfd)
 	}
 	ep.threadPoolSequence.Close()
 	return nil

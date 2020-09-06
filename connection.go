@@ -1,6 +1,8 @@
 package epoll
 
 import (
+	"time"
+
 	"golang.org/x/sys/unix"
 )
 
@@ -12,13 +14,74 @@ func (ep *EP) Add(fd int) error {
 	unix.SetNonblock(fd, true)
 	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_KEEPALIVE, ep.KeepAlive)
 	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_RCVBUF, ep.ReadBuffer)
-	return nil
+	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_SNDBUF, ep.WriteBuffer)
+	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_RCVTIMEO, ep.ReadTimeout)
+	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_SNDTIMEO, ep.WriteTimeout)
+	return err
 }
 
 func (ep *EP) Delete(fd int) error {
 	return unix.EpollCtl(ep.Epfd, unix.EPOLL_CTL_DEL, fd, nil)
 }
 
-func (ep *EP) Close(fd int) error {
+func (ep *EP) CloseFd(fd int) error {
 	return unix.Close(fd)
+}
+
+func (ep *EP) Close(fd int) error {
+	var err = ep.Delete(fd)
+	if err == nil {
+		ep.DeleteConnection(fd)
+		ep.CloseFd(fd)
+	}
+	return err
+}
+
+func (ep *EP) CloseAll() {
+	ep.Connections.Lock.Lock()
+	defer ep.Connections.Lock.Unlock()
+	var fd int
+	for fd, _ = range ep.Connections.List {
+		if ep.Delete(fd) == nil {
+			delete(ep.Connections.List, fd)
+			ep.CloseFd(fd)
+		}
+	}
+}
+
+func (ep *EP) DeleteConnection(fd int) {
+	ep.Connections.Lock.Lock()
+	defer ep.Connections.Lock.Unlock()
+	delete(ep.Connections.List, fd)
+}
+
+func (ep *EP) AddConnection(fd int, sequenceId int) {
+	var conn = &Conn{
+		Fd:         fd,
+		SequenceId: sequenceId,
+		Timestamp:  time.Now().Unix(),
+	}
+	ep.Connections.Lock.Lock()
+	defer ep.Connections.Lock.Unlock()
+	ep.Connections.List[fd] = conn
+}
+
+func (ep *EP) GetConnectionSequenceId(fd int) int {
+	ep.Connections.Lock.Lock()
+	defer ep.Connections.Lock.Unlock()
+	var conn, ok = ep.Connections.List[fd]
+	if ok {
+		conn.Timestamp = time.Now().Unix()
+		return conn.SequenceId
+	}
+	return -1
+}
+
+func (ep *EP) UpdateConnection(fd int) {
+	ep.Connections.Lock.Lock()
+	defer ep.Connections.Lock.Unlock()
+	var conn, ok = ep.Connections.List[fd]
+	if ok {
+		conn.Timestamp = time.Now().Unix()
+	}
 }

@@ -15,18 +15,18 @@ func (ep *EP) listen() {
 			for i = 0; i < n; i++ {
 				fd = int(events[i].Fd)
 				if fd == ep.Fd {
-					ep.acceptFunc()
+					ep.InvokeAccept()
 				} else if events[i].Events&unix.EPOLLIN != 0 {
-					ep.readFunc(fd)
+					ep.read(fd)
 				} else {
 					if fd > 0 {
-						ep.CloseAction(fd)
+						ep.CloseAction(-1, fd)
 					}
 				}
 			}
 		} else {
 			if err != unix.EINTR {
-				ep.TriggerOnError(ERROR_EPOLL_WAIT, err)
+				ep.InvokeError(-1, -1, ERROR_EPOLL_WAIT, err)
 				break
 			}
 		}
