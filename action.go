@@ -13,7 +13,21 @@ func (ep *EP) accept(sequenceId int) {
 	for {
 		fd, _, err = unix.Accept(ep.Fd)
 		if err == nil {
-			ep.AddConnection(fd, sequenceId)
+			if ep.IsSSL {
+				var ssl = ep.newSSL(fd)
+				if ssl != nil {
+					ep.AddConnectionSSL(fd, ssl, sequenceId)
+				} else {
+					ep.CloseFd(fd)
+					if ep.OnError != nil {
+						err = errors.New("unable to create SSL connection")
+						ep.OnError(fd, ERROR_SSL_CONNECTION_CREATE, err)
+					}
+					continue
+				}
+			} else {
+				ep.AddConnection(fd, sequenceId)
+			}
 			if err = ep.Add(fd); err == nil {
 				if ep.OnAccept != nil {
 					ep.OnAccept(fd)
@@ -37,7 +51,7 @@ func (ep *EP) accept(sequenceId int) {
 
 func (ep *EP) read(fd int) {
 	var err error
-	var sequenceId = ep.GetConnectionSequenceId(fd)
+	var sequenceId, ssl = ep.GetConnectionSequenceIdAndSSL(fd)
 	if sequenceId < 0 {
 		if ep.OnError != nil {
 			err = errors.New(fmt.Sprintf("%d not found in the list", fd))
@@ -48,13 +62,26 @@ func (ep *EP) read(fd int) {
 	var msg *[]byte
 	var n int
 	for {
+		/**
+		if ep.IsSSL {
+			if ep.sslHandshakeComplete(ssl) == false {
+				if ep.sslHandshake(ssl) == false {
+					continue
+				}
+			}
+		}
+		*/
 		msg, err = ep.GetBufferPoolItem()
 		if err != nil {
 			ep.InvokeError(sequenceId, fd, ERROR_POOL_BUFFER, err)
 			ep.CloseAction(sequenceId, fd)
 			break
 		}
-		n, err = unix.Read(fd, *msg)
+		if ep.IsSSL {
+			n = sslRead(ssl.SSL, *msg, ep.ReadBuffer)
+		} else {
+			n, err = unix.Read(fd, *msg)
+		}
 		if err == nil {
 			if n > 0 {
 				ep.InvokeReceive(sequenceId, fd, msg, n)

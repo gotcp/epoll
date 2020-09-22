@@ -8,12 +8,16 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+type UpdateDataFunc func(data interface{})
+
 func (ep *EP) Add(fd int) error {
 	var err = unix.EpollCtl(ep.Epfd, unix.EPOLL_CTL_ADD, fd, &unix.EpollEvent{Events: unix.EPOLLIN | unix.EPOLLET, Fd: int32(fd)})
 	if err != nil {
 		return err
 	}
 	unix.SetNonblock(fd, true)
+	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEADDR, ep.ReuseAddr)
+	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEPORT, ep.ReusePort)
 	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_KEEPALIVE, ep.KeepAlive)
 	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_RCVBUF, ep.ReadBuffer)
 	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_SNDBUF, ep.WriteBuffer)
@@ -71,15 +75,24 @@ func (ep *EP) CloseAll() {
 	for fd, _ = range ep.Connections.List {
 		if ep.Delete(fd) == nil {
 			delete(ep.Connections.List, fd)
+			ep.Connections.Count--
 			ep.CloseFd(fd)
 		}
 	}
+	cMallocTrim()
 }
 
-func (ep *EP) DeleteConnection(fd int) {
+func (ep *EP) DeleteConnection(fd int) bool {
 	ep.Connections.Lock.Lock()
 	defer ep.Connections.Lock.Unlock()
-	delete(ep.Connections.List, fd)
+	var conn, ok = ep.Connections.List[fd]
+	if ok {
+		ep.putConnSSL(conn)
+		delete(ep.Connections.List, fd)
+		ep.Connections.Count--
+		return true
+	}
+	return false
 }
 
 func (ep *EP) AddConnection(fd int, sequenceId int) {
@@ -87,10 +100,12 @@ func (ep *EP) AddConnection(fd int, sequenceId int) {
 		Fd:         fd,
 		SequenceId: sequenceId,
 		Timestamp:  time.Now().Unix(),
+		Status:     0,
 	}
 	ep.Connections.Lock.Lock()
 	defer ep.Connections.Lock.Unlock()
 	ep.Connections.List[fd] = conn
+	ep.Connections.Count++
 }
 
 func (ep *EP) GetConnectionSequenceId(fd int) int {
@@ -104,6 +119,28 @@ func (ep *EP) GetConnectionSequenceId(fd int) int {
 	return -1
 }
 
+func (ep *EP) GetConnection(fd int) *Conn {
+	ep.Connections.Lock.Lock()
+	defer ep.Connections.Lock.Unlock()
+	var conn, ok = ep.Connections.List[fd]
+	if ok {
+		conn.Timestamp = time.Now().Unix()
+		return conn
+	}
+	return nil
+}
+
+func (ep *EP) GetConnectionAndSequenceId(fd int) (*Conn, int) {
+	ep.Connections.Lock.Lock()
+	defer ep.Connections.Lock.Unlock()
+	var conn, ok = ep.Connections.List[fd]
+	if ok {
+		conn.Timestamp = time.Now().Unix()
+		return conn, conn.SequenceId
+	}
+	return nil, -1
+}
+
 func (ep *EP) UpdateConnection(fd int) {
 	ep.Connections.Lock.Lock()
 	defer ep.Connections.Lock.Unlock()
@@ -111,4 +148,60 @@ func (ep *EP) UpdateConnection(fd int) {
 	if ok {
 		conn.Timestamp = time.Now().Unix()
 	}
+}
+
+func (ep *EP) SetConnectionStatus(fd int, status int) bool {
+	ep.Connections.Lock.Lock()
+	defer ep.Connections.Lock.Unlock()
+	var c, ok = ep.Connections.List[fd]
+	if ok {
+		c.Status = status
+	}
+	return ok
+}
+
+func (ep *EP) GetConnectionStatus(fd int) (int, bool) {
+	ep.Connections.Lock.RLock()
+	defer ep.Connections.Lock.RUnlock()
+	var c, ok = ep.Connections.List[fd]
+	if ok {
+		return c.Status, ok
+	}
+	return -1, ok
+}
+
+func (ep *EP) GetConnectionCount() int {
+	ep.Connections.Lock.RLock()
+	defer ep.Connections.Lock.RUnlock()
+	return ep.Connections.Count
+}
+
+func (ep *EP) SetConnectionData(fd int, data interface{}) bool {
+	ep.Connections.Lock.Lock()
+	defer ep.Connections.Lock.Unlock()
+	var conn, ok = ep.Connections.List[fd]
+	if ok {
+		conn.Data = data
+	}
+	return ok
+}
+
+func (ep *EP) GetConnectionData(fd int) (interface{}, bool) {
+	ep.Connections.Lock.RLock()
+	defer ep.Connections.Lock.RUnlock()
+	var conn, ok = ep.Connections.List[fd]
+	if ok {
+		return conn.Data, ok
+	}
+	return nil, ok
+}
+
+func (ep *EP) UpdateConnectionDataWithFunc(fd int, updateDataFunc UpdateDataFunc) bool {
+	ep.Connections.Lock.Lock()
+	defer ep.Connections.Lock.Unlock()
+	var conn, ok = ep.Connections.List[fd]
+	if ok {
+		updateDataFunc(conn.Data)
+	}
+	return ok
 }

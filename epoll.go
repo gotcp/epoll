@@ -13,6 +13,7 @@ const (
 	DEFAULT_EPOLL_EVENTS        = 4096
 	DEFAULT_EPOLL_READ_TIMEOUT  = 5
 	DEFAULT_EPOLL_WRITE_TIMEOUT = 5
+	DEFAULT_POOL_MULTIPLE       = 20
 )
 
 func New(readBuffer int, threads int, queueLength int) (*EP, error) {
@@ -21,13 +22,16 @@ func New(readBuffer int, threads int, queueLength int) (*EP, error) {
 		return nil, err
 	}
 	var conns = &Conns{
-		List: make(map[int]*Conn),
-		Lock: &sync.RWMutex{},
+		List:  make(map[int]*Conn),
+		Count: 0,
+		Lock:  &sync.RWMutex{},
 	}
 	var ep = &EP{
 		Epfd:         epfd,
 		Fd:           -9,
 		Connections:  conns,
+		SSLCtx:       nil,
+		IsSSL:        false,
 		ReadBuffer:   readBuffer,
 		WriteBuffer:  readBuffer,
 		WaitTimeout:  -1,
@@ -36,18 +40,24 @@ func New(readBuffer int, threads int, queueLength int) (*EP, error) {
 		Threads:      threads,
 		QueueLength:  queueLength,
 		KeepAlive:    0,
+		ReuseAddr:    1,
+		ReusePort:    1,
 		EpollEvents:  DEFAULT_EPOLL_EVENTS,
 		OnAccept:     nil,
 		OnReceive:    nil,
 		OnClose:      nil,
 		OnError:      nil,
 	}
-	ep.bufferPool = pool.New(20*threads, func() interface{} {
-		var buf = make([]byte, readBuffer)
-		return &buf
-	})
+	ep.bufferPool = ep.newBufferPool(readBuffer, threads*DEFAULT_POOL_MULTIPLE)
 	ep.threadPoolSequence = ep.newThreadPoolSequence()
 	return ep, nil
+}
+
+func (ep *EP) newBufferPool(readBuffer int, length int) *pool.Pool {
+	return pool.New(length, func() interface{} {
+		var b = make([]byte, readBuffer)
+		return &b
+	})
 }
 
 func (ep *EP) SetWaitTimeout(n int) {
@@ -70,6 +80,14 @@ func (ep *EP) SetKeepAlive(n int) {
 	ep.KeepAlive = n
 }
 
+func (ep *EP) SetReuseAddr(n int) {
+	ep.ReuseAddr = n
+}
+
+func (ep *EP) SetReusePort(n int) {
+	ep.ReusePort = n
+}
+
 func (ep *EP) SetEpollEvents(n int) {
 	ep.EpollEvents = n
 }
@@ -82,6 +100,20 @@ func (ep *EP) Start(host string, port int) {
 	if err = ep.InitEpoll(ep.Host, ep.Port); err != nil {
 		panic(err)
 	}
+	ep.listen()
+}
+
+func (ep *EP) StartSSL(host string, port int, certFile string, keyFile string) {
+	ep.IsSSL = true
+	ep.Host = host
+	ep.Port = port
+	var err error
+	if err = ep.InitEpoll(ep.Host, ep.Port); err != nil {
+		panic(err)
+	}
+	ep.SSLCtx = newSSLCtx(certFile, keyFile)
+	ep.sslPool = ep.newSSLPool(ep.Threads * DEFAULT_POOL_MULTIPLE)
+	go cMallocTrimLoop()
 	ep.listen()
 }
 
@@ -142,6 +174,10 @@ func (ep *EP) Stop() error {
 	if ep.Epfd >= 0 {
 		unix.Close(ep.Epfd)
 	}
+	if ep.SSLCtx != nil {
+		ep.freeSSLCtx()
+	}
 	ep.threadPoolSequence.Close()
+	cMallocTrim()
 	return nil
 }
