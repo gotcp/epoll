@@ -25,14 +25,16 @@ import (
 )
 
 const (
-	C_MALLOC_TRIM_INTERVAL = 600
+	DEFAULT_C_MALLOC_TRIM_INTERVAL = 600
 )
 
 type SSL struct {
+	Id  uint64
 	SSL *C.SSL
 }
 
 type Conn struct {
+	Id         uint64
 	Fd         int
 	SSL        *SSL
 	Data       interface{}
@@ -67,6 +69,8 @@ type EP struct {
 	ReuseAddr          int
 	ReusePort          int
 	bufferPool         *pool.Pool               // []byte pool, return *[]byte
+	connPool           *pool.Pool               // Conn pool, return *Conn
+	requestPool        *pool.Pool               // *Request pool, return *Request
 	sslPool            *pool.Pool               // *C.SSL pool, return *C.SSL
 	threadPoolSequence *threadpool.PoolSequence // thread pool sequence
 	OnAccept           OnAcceptEvent
@@ -76,9 +80,11 @@ type EP struct {
 }
 
 func (ep *EP) newSSLPool(length int) *pool.Pool {
-	return pool.New(length, func() interface{} {
-		var ssl = new(SSL)
-		ssl.SSL = C.SSL_new(ep.SSLCtx)
+	return pool.NewWithId(length, func(id uint64) interface{} {
+		var ssl = &SSL{
+			Id:  id,
+			SSL: C.SSL_new(ep.SSLCtx),
+		}
 		return ssl
 	})
 }
@@ -93,7 +99,7 @@ func (ep *EP) getSSL() *SSL {
 
 func (ep *EP) putSSL(ssl *SSL) {
 	C.SSL_clear(ssl.SSL)
-	ep.sslPool.Put(ssl)
+	ep.sslPool.PutWithId(ssl, ssl.Id)
 }
 
 func newSSLCtx(certFile string, keyFile string) *C.SSL_CTX {
@@ -178,13 +184,12 @@ func (ep *EP) putConnSSL(conn *Conn) {
 }
 
 func (ep *EP) AddConnectionSSL(fd int, ssl *SSL, sequenceId int) {
-	var conn = &Conn{
-		Fd:         fd,
-		SSL:        ssl,
-		SequenceId: sequenceId,
-		Timestamp:  time.Now().Unix(),
-		Status:     0,
-	}
+	var conn = ep.getConn()
+	conn.Fd = fd
+	conn.SSL = ssl
+	conn.SequenceId = sequenceId
+	conn.Timestamp = time.Now().Unix()
+	conn.Status = 0
 	ep.Connections.Lock.Lock()
 	defer ep.Connections.Lock.Unlock()
 	ep.Connections.List[fd] = conn
@@ -229,30 +234,16 @@ func freeSSL(ssl *C.SSL) {
 }
 
 func cMallocTrimLoop() {
-	var timer = time.NewTicker(C_MALLOC_TRIM_INTERVAL * time.Second)
-	defer timer.Stop()
-	for {
-		<-timer.C
-		cMallocTrim()
-	}
+	go func() {
+		var timer = time.NewTicker(DEFAULT_C_MALLOC_TRIM_INTERVAL * time.Second)
+		defer timer.Stop()
+		for {
+			<-timer.C
+			cMallocTrim()
+		}
+	}()
 }
 
 func cMallocTrim() {
 	C.malloc_trim(0)
 }
-
-/**
-func (ep *EP) sslHandshakeComplete(ssl *C.SSL) bool {
-	if C.SSL_is_init_finished(ssl) > 0 {
-		return true
-	}
-	return false
-}
-
-func (ep *EP) sslHandshake(ssl *C.SSL) bool {
-	if C.SSL_do_handshake(ssl) > 0 {
-		return true
-	}
-	return false
-}
-*/

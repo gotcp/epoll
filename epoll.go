@@ -13,7 +13,7 @@ const (
 	DEFAULT_EPOLL_EVENTS        = 4096
 	DEFAULT_EPOLL_READ_TIMEOUT  = 5
 	DEFAULT_EPOLL_WRITE_TIMEOUT = 5
-	DEFAULT_POOL_MULTIPLE       = 20
+	DEFAULT_POOL_MULTIPLE       = 12
 )
 
 func New(readBuffer int, threads int, queueLength int) (*EP, error) {
@@ -49,6 +49,8 @@ func New(readBuffer int, threads int, queueLength int) (*EP, error) {
 		OnError:      nil,
 	}
 	ep.bufferPool = ep.newBufferPool(readBuffer, threads*DEFAULT_POOL_MULTIPLE)
+	ep.connPool = ep.newConnPool(threads * DEFAULT_POOL_MULTIPLE)
+	ep.requestPool = ep.newRequestPool(threads * DEFAULT_POOL_MULTIPLE)
 	ep.threadPoolSequence = ep.newThreadPoolSequence()
 	return ep, nil
 }
@@ -57,6 +59,18 @@ func (ep *EP) newBufferPool(readBuffer int, length int) *pool.Pool {
 	return pool.New(length, func() interface{} {
 		var b = make([]byte, readBuffer)
 		return &b
+	})
+}
+
+func (ep *EP) newConnPool(length int) *pool.Pool {
+	return pool.NewWithId(length, func(id uint64) interface{} {
+		return &Conn{Id: id}
+	})
+}
+
+func (ep *EP) newRequestPool(length int) *pool.Pool {
+	return pool.NewWithId(length, func(id uint64) interface{} {
+		return &Request{Id: id}
 	})
 }
 
@@ -100,6 +114,11 @@ func (ep *EP) Start(host string, port int) {
 	if err = ep.InitEpoll(ep.Host, ep.Port); err != nil {
 		panic(err)
 	}
+
+	ep.bufferPool.SetMode(pool.MODE_NONE)
+	ep.connPool.SetMode(pool.MODE_NONE)
+	ep.requestPool.SetMode(pool.MODE_NONE)
+
 	ep.listen()
 }
 
@@ -113,7 +132,13 @@ func (ep *EP) StartSSL(host string, port int, certFile string, keyFile string) {
 	}
 	ep.SSLCtx = newSSLCtx(certFile, keyFile)
 	ep.sslPool = ep.newSSLPool(ep.Threads * DEFAULT_POOL_MULTIPLE)
-	go cMallocTrimLoop()
+
+	ep.bufferPool.SetMode(pool.MODE_QUEUE)
+	ep.connPool.SetMode(pool.MODE_QUEUE)
+	ep.requestPool.SetMode(pool.MODE_QUEUE)
+	ep.sslPool.SetMode(pool.MODE_QUEUE)
+
+	cMallocTrimLoop()
 	ep.listen()
 }
 
@@ -178,6 +203,5 @@ func (ep *EP) Stop() error {
 		ep.freeSSLCtx()
 	}
 	ep.threadPoolSequence.Close()
-	cMallocTrim()
 	return nil
 }

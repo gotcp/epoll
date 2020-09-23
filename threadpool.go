@@ -6,7 +6,7 @@ import (
 
 func (ep *EP) newThreadPoolSequence() *threadpool.PoolSequence {
 	var p = threadpool.NewSequenceWithFunc(ep.Threads, ep.QueueLength, func(payload interface{}) {
-		var req, ok = payload.(*request)
+		var req, ok = payload.(*Request)
 		if ok {
 			switch req.Op {
 			case OP_ACCEPT:
@@ -23,6 +23,7 @@ func (ep *EP) newThreadPoolSequence() *threadpool.PoolSequence {
 			case OP_ERROR:
 				ep.OnError(req.Fd, req.ErrCode, req.Err)
 			}
+			ep.putRequest(req)
 		}
 	})
 	return p

@@ -3,6 +3,7 @@ package epoll
 type ErrorCode int
 
 const (
+	ERROR_UNKNOW                ErrorCode = -1
 	ERROR_ACCEPT                ErrorCode = 1
 	ERROR_ADD_CONNECTION        ErrorCode = 2
 	ERROR_SSL_CONNECTION_CREATE ErrorCode = 3

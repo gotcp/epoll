@@ -10,6 +10,28 @@ import (
 
 type UpdateDataFunc func(data interface{})
 
+func (ep *EP) getConn() *Conn {
+	var conn, err = ep.connPool.Get()
+	if err == nil {
+		return conn.(*Conn)
+	}
+	return nil
+}
+
+func (ep *EP) putConn(conn *Conn) {
+	ep.resetConn(conn)
+	ep.connPool.PutWithId(conn, conn.Id)
+}
+
+func (ep *EP) resetConn(conn *Conn) {
+	conn.Fd = -1
+	conn.SSL = nil
+	conn.Data = nil
+	conn.SequenceId = -1
+	conn.Timestamp = 0
+	conn.Status = 0
+}
+
 func (ep *EP) Add(fd int) error {
 	var err = unix.EpollCtl(ep.Epfd, unix.EPOLL_CTL_ADD, fd, &unix.EpollEvent{Events: unix.EPOLLIN | unix.EPOLLET, Fd: int32(fd)})
 	if err != nil {
@@ -72,14 +94,18 @@ func (ep *EP) CloseAll() {
 	ep.Connections.Lock.Lock()
 	defer ep.Connections.Lock.Unlock()
 	var fd int
-	for fd, _ = range ep.Connections.List {
-		if ep.Delete(fd) == nil {
-			delete(ep.Connections.List, fd)
-			ep.Connections.Count--
-			ep.CloseFd(fd)
-		}
+	var conn *Conn
+	for fd, conn = range ep.Connections.List {
+		ep.Delete(fd)
+		ep.putConnSSL(conn)
+		ep.putConn(conn)
+		delete(ep.Connections.List, fd)
+		ep.Connections.Count--
+		ep.CloseFd(fd)
 	}
-	cMallocTrim()
+	if ep.IsSSL {
+		cMallocTrim()
+	}
 }
 
 func (ep *EP) DeleteConnection(fd int) bool {
@@ -88,6 +114,7 @@ func (ep *EP) DeleteConnection(fd int) bool {
 	var conn, ok = ep.Connections.List[fd]
 	if ok {
 		ep.putConnSSL(conn)
+		ep.putConn(conn)
 		delete(ep.Connections.List, fd)
 		ep.Connections.Count--
 		return true
@@ -96,12 +123,11 @@ func (ep *EP) DeleteConnection(fd int) bool {
 }
 
 func (ep *EP) AddConnection(fd int, sequenceId int) {
-	var conn = &Conn{
-		Fd:         fd,
-		SequenceId: sequenceId,
-		Timestamp:  time.Now().Unix(),
-		Status:     0,
-	}
+	var conn = ep.getConn()
+	conn.Fd = fd
+	conn.SequenceId = sequenceId
+	conn.Timestamp = time.Now().Unix()
+	conn.Status = 0
 	ep.Connections.Lock.Lock()
 	defer ep.Connections.Lock.Unlock()
 	ep.Connections.List[fd] = conn

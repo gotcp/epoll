@@ -3,10 +3,10 @@ package epoll
 import (
 	"errors"
 	"fmt"
-	"sync"
 )
 
-type request struct {
+type Request struct {
+	Id         uint64
 	Op         OpCode
 	Fd         int
 	Msg        []byte
@@ -14,6 +14,22 @@ type request struct {
 	SequenceId int
 	ErrCode    ErrorCode
 	Err        error
+}
+
+func (ep *EP) getRequest() *Request {
+	var req, err = ep.requestPool.Get()
+	if err == nil {
+		return req.(*Request)
+	}
+	return nil
+}
+
+func (ep *EP) putRequest(req *Request) {
+	ep.requestPool.PutWithId(req, req.Id)
+}
+
+func (ep *EP) getRequestItem() *Request {
+	return ep.getRequest()
 }
 
 func (ep *EP) InvokeAccept() {
@@ -43,48 +59,35 @@ func (ep *EP) InvokeError(sequenceId int, fd int, code ErrorCode, err error) {
 	ep.threadPoolSequence.Invoke(sequenceId, ep.getRequestItemForError(fd, code, err))
 }
 
-func (ep *EP) newRequestPool() sync.Pool {
-	var p = sync.Pool{
-		New: func() interface{} {
-			return &request{}
-		},
-	}
-	return p
+func (ep *EP) getRequestItemForAccept(sequenceId int) *Request {
+	var req = ep.getRequestItem()
+	req.Op = OP_ACCEPT
+	req.SequenceId = sequenceId
+	return req
 }
 
-func (ep *EP) getRequestItem() *request {
-	return &request{SequenceId: -1}
+func (ep *EP) getRequestItemForReceive(sequenceId int, fd int, msg *[]byte, n int) *Request {
+	var req = ep.getRequestItem()
+	req.Op = OP_RECEIVE
+	req.Fd = fd
+	req.SequenceId = sequenceId
+	req.Msg = *msg
+	req.N = n
+	return req
 }
 
-func (ep *EP) getRequestItemForAccept(sequenceId int) *request {
-	var item = ep.getRequestItem()
-	item.Op = OP_ACCEPT
-	item.SequenceId = sequenceId
-	return item
+func (ep *EP) getRequestItemForClose(fd int) *Request {
+	var req = ep.getRequestItem()
+	req.Op = OP_CLOSE
+	req.Fd = fd
+	return req
 }
 
-func (ep *EP) getRequestItemForReceive(sequenceId int, fd int, msg *[]byte, n int) *request {
-	var item = ep.getRequestItem()
-	item.Op = OP_RECEIVE
-	item.Fd = fd
-	item.SequenceId = sequenceId
-	item.Msg = *msg
-	item.N = n
-	return item
-}
-
-func (ep *EP) getRequestItemForClose(fd int) *request {
-	var item = ep.getRequestItem()
-	item.Op = OP_CLOSE
-	item.Fd = fd
-	return item
-}
-
-func (ep *EP) getRequestItemForError(fd int, errCode ErrorCode, err error) *request {
-	var item = ep.getRequestItem()
-	item.Op = OP_ERROR
-	item.Fd = fd
-	item.ErrCode = errCode
-	item.Err = err
-	return item
+func (ep *EP) getRequestItemForError(fd int, errCode ErrorCode, err error) *Request {
+	var req = ep.getRequestItem()
+	req.Op = OP_ERROR
+	req.Fd = fd
+	req.ErrCode = errCode
+	req.Err = err
+	return req
 }

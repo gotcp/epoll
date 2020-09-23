@@ -62,15 +62,6 @@ func (ep *EP) read(fd int) {
 	var msg *[]byte
 	var n int
 	for {
-		/**
-		if ep.IsSSL {
-			if ep.sslHandshakeComplete(ssl) == false {
-				if ep.sslHandshake(ssl) == false {
-					continue
-				}
-			}
-		}
-		*/
 		msg, err = ep.GetBufferPoolItem()
 		if err != nil {
 			ep.InvokeError(sequenceId, fd, ERROR_POOL_BUFFER, err)
