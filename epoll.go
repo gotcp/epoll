@@ -153,15 +153,28 @@ func (ep *EP) InitEpoll(host string, port int) error {
 	if ep.Fd, err = unix.Socket(unix.AF_INET, unix.O_NONBLOCK|unix.SOCK_STREAM, 0); err != nil {
 		return err
 	}
+
 	if err = unix.SetNonblock(ep.Fd, true); err != nil {
 		unix.Close(ep.Fd)
 		return err
 	}
+
 	if err = unix.SetsockoptInt(ep.Fd, unix.IPPROTO_TCP, unix.TCP_NODELAY, 1); err != nil {
 		unix.Close(ep.Fd)
 		return err
 	}
+
 	if err = unix.SetsockoptInt(ep.Fd, unix.IPPROTO_TCP, unix.TCP_QUICKACK, 1); err != nil {
+		unix.Close(ep.Fd)
+		return err
+	}
+
+	if err = unix.SetsockoptInt(ep.Fd, unix.SOL_SOCKET, unix.SO_REUSEADDR, ep.ReuseAddr); err != nil {
+		unix.Close(ep.Fd)
+		return err
+	}
+
+	if err = unix.SetsockoptInt(ep.Fd, unix.SOL_SOCKET, unix.SO_REUSEPORT, ep.ReusePort); err != nil {
 		unix.Close(ep.Fd)
 		return err
 	}

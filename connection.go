@@ -38,8 +38,6 @@ func (ep *EP) Add(fd int) error {
 		return err
 	}
 	unix.SetNonblock(fd, true)
-	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEADDR, ep.ReuseAddr)
-	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_REUSEPORT, ep.ReusePort)
 	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_KEEPALIVE, ep.KeepAlive)
 	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_RCVBUF, ep.ReadBuffer)
 	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_SNDBUF, ep.WriteBuffer)
