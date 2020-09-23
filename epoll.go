@@ -114,11 +114,6 @@ func (ep *EP) Start(host string, port int) {
 	if err = ep.InitEpoll(ep.Host, ep.Port); err != nil {
 		panic(err)
 	}
-
-	ep.bufferPool.SetMode(pool.MODE_NONE)
-	ep.connPool.SetMode(pool.MODE_NONE)
-	ep.requestPool.SetMode(pool.MODE_NONE)
-
 	ep.listen()
 }
 
