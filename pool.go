@@ -4,6 +4,13 @@ import (
 	"errors"
 )
 
+func bufferRecycleUpdate(ptr interface{}) {
+	var buffer, ok = ptr.(*[]byte)
+	if ok && buffer != nil {
+		*buffer = (*buffer)[:0]
+	}
+}
+
 func (ep *EP) GetBufferPoolItem() (*[]byte, error) {
 	var iface, err = ep.bufferPool.Get()
 	if err == nil {

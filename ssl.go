@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	DEFAULT_C_MALLOC_TRIM_INTERVAL = 600
+	DEFAULT_C_MALLOC_TRIM_INTERVAL = 1800
 )
 
 type SSL struct {
@@ -220,16 +220,17 @@ func sslWrite(ssl *C.SSL, buffer []byte, n int) bool {
 	return false
 }
 
-func freeConnSSL(conn *Conn) {
-	if conn.SSL != nil {
-		C.SSL_free(conn.SSL.SSL)
-		conn.SSL = nil
+func freeSSL(ssl *SSL) {
+	if ssl.SSL != nil {
+		C.SSL_free(ssl.SSL)
+		ssl.SSL = nil
 	}
 }
 
-func freeSSL(ssl *C.SSL) {
-	if ssl != nil {
-		C.SSL_free(ssl)
+func sslRecycleUpdate(ptr interface{}) {
+	var ssl, ok = ptr.(*SSL)
+	if ok && ssl != nil {
+		freeSSL(ssl)
 	}
 }
 

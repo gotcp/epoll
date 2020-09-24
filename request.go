@@ -16,6 +16,18 @@ type Request struct {
 	Err        error
 }
 
+func requestRecycleUpdate(ptr interface{}) {
+	var req, ok = ptr.(*Request)
+	if ok && req != nil {
+		resetRequest(req)
+	}
+}
+
+func resetRequest(req *Request) {
+	req.Msg = nil
+	req.Err = nil
+}
+
 func (ep *EP) getRequest() *Request {
 	var req, err = ep.requestPool.Get()
 	if err == nil {

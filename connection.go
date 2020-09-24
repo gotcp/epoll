@@ -10,6 +10,22 @@ import (
 
 type UpdateDataFunc func(data interface{})
 
+func connRecycleUpdate(ptr interface{}) {
+	var conn, ok = ptr.(*Conn)
+	if ok && conn != nil {
+		resetConn(conn)
+	}
+}
+
+func resetConn(conn *Conn) {
+	conn.Fd = -1
+	conn.SSL = nil
+	conn.Data = nil
+	conn.SequenceId = -1
+	conn.Timestamp = 0
+	conn.Status = 0
+}
+
 func (ep *EP) getConn() *Conn {
 	var conn, err = ep.connPool.Get()
 	if err == nil {
@@ -19,17 +35,8 @@ func (ep *EP) getConn() *Conn {
 }
 
 func (ep *EP) putConn(conn *Conn) {
-	ep.resetConn(conn)
+	resetConn(conn)
 	ep.connPool.PutWithId(conn, conn.Id)
-}
-
-func (ep *EP) resetConn(conn *Conn) {
-	conn.Fd = -1
-	conn.SSL = nil
-	conn.Data = nil
-	conn.SequenceId = -1
-	conn.Timestamp = 0
-	conn.Status = 0
 }
 
 func (ep *EP) Add(fd int) error {

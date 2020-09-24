@@ -48,10 +48,21 @@ func New(readBuffer int, threads int, queueLength int) (*EP, error) {
 		OnClose:      nil,
 		OnError:      nil,
 	}
+
 	ep.bufferPool = ep.newBufferPool(readBuffer, threads*DEFAULT_POOL_MULTIPLE)
 	ep.connPool = ep.newConnPool(threads * DEFAULT_POOL_MULTIPLE)
 	ep.requestPool = ep.newRequestPool(threads * DEFAULT_POOL_MULTIPLE)
+
+	ep.bufferPool.RecycleUpdateFunc = bufferRecycleUpdate
+	ep.connPool.RecycleUpdateFunc = connRecycleUpdate
+	ep.requestPool.RecycleUpdateFunc = requestRecycleUpdate
+
+	ep.bufferPool.EnableRecycle()
+	ep.connPool.EnableRecycle()
+	ep.requestPool.EnableRecycle()
+
 	ep.threadPoolSequence = ep.newThreadPoolSequence()
+
 	return ep, nil
 }
 
@@ -128,10 +139,13 @@ func (ep *EP) StartSSL(host string, port int, certFile string, keyFile string) {
 	ep.SSLCtx = newSSLCtx(certFile, keyFile)
 	ep.sslPool = ep.newSSLPool(ep.Threads * DEFAULT_POOL_MULTIPLE)
 
-	ep.bufferPool.SetMode(pool.MODE_QUEUE)
-	ep.connPool.SetMode(pool.MODE_QUEUE)
-	ep.requestPool.SetMode(pool.MODE_QUEUE)
-	ep.sslPool.SetMode(pool.MODE_QUEUE)
+	ep.sslPool.RecycleUpdateFunc = sslRecycleUpdate
+	ep.sslPool.EnableRecycle()
+
+	ep.bufferPool.EnableQueue()
+	ep.connPool.EnableQueue()
+	ep.requestPool.EnableQueue()
+	ep.sslPool.EnableQueue()
 
 	cMallocTrimLoop()
 	ep.listen()
