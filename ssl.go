@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	DEFAULT_C_MALLOC_TRIM_INTERVAL = 1800
+	DEFAULT_C_MALLOC_TRIM_INTERVAL = 7200
 )
 
 type SSL struct {
