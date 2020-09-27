@@ -16,16 +16,16 @@ package epoll
 import "C"
 import (
 	"errors"
-	"sync"
 	"time"
 	"unsafe"
 
+	"github.com/wuyongjia/hashmap"
 	"github.com/wuyongjia/pool"
 	"github.com/wuyongjia/threadpool"
 )
 
 const (
-	DEFAULT_C_MALLOC_TRIM_INTERVAL = 6000
+	DEFAULT_C_MALLOC_TRIM_INTERVAL = 5000
 )
 
 type SSL struct {
@@ -43,18 +43,12 @@ type Conn struct {
 	Status     int
 }
 
-type Conns struct {
-	List  map[int]*Conn
-	Count int
-	Lock  *sync.RWMutex
-}
-
 type EP struct {
 	Host               string
 	Port               int
 	Epfd               int
 	Fd                 int
-	Connections        *Conns
+	Connections        *hashmap.HM
 	SSLCtx             *C.SSL_CTX
 	IsSSL              bool
 	Threads            int
@@ -139,25 +133,29 @@ func (ep *EP) freeSSLCtx() {
 }
 
 func (ep *EP) GetConnectionSSL(fd int) *SSL {
-	ep.Connections.Lock.Lock()
-	defer ep.Connections.Lock.Unlock()
-	var conn, ok = ep.Connections.List[fd]
-	if ok {
-		conn.Timestamp = time.Now().Unix()
-		return conn.SSL
-	}
-	return nil
+	var ssl *SSL
+	ep.Connections.UpdateWithFunc(fd, func(value interface{}) {
+		var c, ok = value.(*Conn)
+		if ok {
+			c.Timestamp = time.Now().Unix()
+			ssl = c.SSL
+		}
+	})
+	return ssl
 }
 
 func (ep *EP) GetConnectionSequenceIdAndSSL(fd int) (int, *SSL) {
-	ep.Connections.Lock.Lock()
-	defer ep.Connections.Lock.Unlock()
-	var conn, ok = ep.Connections.List[fd]
-	if ok {
-		conn.Timestamp = time.Now().Unix()
-		return conn.SequenceId, conn.SSL
-	}
-	return -1, nil
+	var ssl *SSL
+	var sequenceId = -1
+	ep.Connections.UpdateWithFunc(fd, func(value interface{}) {
+		var c, ok = value.(*Conn)
+		if ok {
+			c.Timestamp = time.Now().Unix()
+			sequenceId = c.SequenceId
+			ssl = c.SSL
+		}
+	})
+	return sequenceId, ssl
 }
 
 func (ep *EP) newSSL(fd int) *SSL {
@@ -190,22 +188,20 @@ func (ep *EP) AddConnectionSSL(fd int, ssl *SSL, sequenceId int) {
 	conn.SequenceId = sequenceId
 	conn.Timestamp = time.Now().Unix()
 	conn.Status = 0
-	ep.Connections.Lock.Lock()
-	defer ep.Connections.Lock.Unlock()
-	ep.Connections.List[fd] = conn
-	ep.Connections.Count++
+	ep.Connections.Put(fd, conn)
 }
 
 func (ep *EP) setConnectionSSL(fd int, ssl *SSL) bool {
 	if ssl == nil {
 		return false
 	}
-	ep.Connections.Lock.Lock()
-	defer ep.Connections.Lock.Unlock()
-	var conn, ok = ep.Connections.List[fd]
-	if ok {
-		conn.SSL = ssl
-	}
+	var ok bool
+	ep.Connections.UpdateWithFunc(fd, func(value interface{}) {
+		var c, ok = value.(*Conn)
+		if ok {
+			c.SSL = ssl
+		}
+	})
 	return ok
 }
 

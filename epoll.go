@@ -2,10 +2,10 @@ package epoll
 
 import (
 	"net"
-	"sync"
 
 	"golang.org/x/sys/unix"
 
+	"github.com/wuyongjia/hashmap"
 	"github.com/wuyongjia/pool"
 )
 
@@ -13,7 +13,7 @@ const (
 	DEFAULT_EPOLL_EVENTS        = 4096
 	DEFAULT_EPOLL_READ_TIMEOUT  = 5
 	DEFAULT_EPOLL_WRITE_TIMEOUT = 5
-	DEFAULT_POOL_MULTIPLE       = 12
+	DEFAULT_POOL_MULTIPLE       = 5
 )
 
 func New(readBuffer int, threads int, queueLength int) (*EP, error) {
@@ -21,15 +21,10 @@ func New(readBuffer int, threads int, queueLength int) (*EP, error) {
 	if err != nil {
 		return nil, err
 	}
-	var conns = &Conns{
-		List:  make(map[int]*Conn),
-		Count: 0,
-		Lock:  &sync.RWMutex{},
-	}
 	var ep = &EP{
 		Epfd:         epfd,
 		Fd:           -9,
-		Connections:  conns,
+		Connections:  hashmap.New(threads * DEFAULT_POOL_MULTIPLE),
 		SSLCtx:       nil,
 		IsSSL:        false,
 		ReadBuffer:   readBuffer,
