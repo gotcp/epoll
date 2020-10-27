@@ -1,8 +1,8 @@
-github.com/wuyongjia/hashmap v1.0.4 h1:t7AUAaAl8bou7YIBJBL1tSUbm4wyZJrbSQ8vze+QjJ0=
-github.com/wuyongjia/hashmap v1.0.4/go.mod h1:na48ZyFhZiMmfDfoN0wkZolJojFSfyySeTq6et/GVqk=
-github.com/wuyongjia/pool v1.0.4 h1:qKb5jJUR5g9Y2x3hUum7mWbsG/ZRZ2Wh6eSzWMY8ZeY=
-github.com/wuyongjia/pool v1.0.4/go.mod h1:LSvXIqcXlHtbYLCnHd8IVBHNAAKQiMPdlAzFXKE5jtE=
+github.com/wuyongjia/hashmap v1.0.5 h1:EO34A9sifG+JkdvGQKT/+L5abGXqBDRubTlgs2xQcag=
+github.com/wuyongjia/hashmap v1.0.5/go.mod h1:na48ZyFhZiMmfDfoN0wkZolJojFSfyySeTq6et/GVqk=
+github.com/wuyongjia/pool v1.0.7 h1:rZpCULfV54GDEBHxvD2zh4L1qkJ5sTlyY6Z1q/iFbxo=
+github.com/wuyongjia/pool v1.0.7/go.mod h1:DcdIaTv7byb19BkXhI3etGpMVAnFllOPStl/1k2FXyQ=
 github.com/wuyongjia/threadpool v1.0.2 h1:9QTolxkYAB9ToCjxwPjIn9FoK1XHbd8n+ZzjwuBc3mA=
 github.com/wuyongjia/threadpool v1.0.2/go.mod h1:iGlzWzmpKa+RJGbVTWuqJtey8pe7FdC589GdU0FeTjI=
-golang.org/x/sys v0.0.0-20200808120158-1030fc2bf1d9 h1:yi1hN8dcqI9l8klZfy4B8mJvFmmAxJEePIQQFNSd7Cs=
-golang.org/x/sys v0.0.0-20200808120158-1030fc2bf1d9/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20201027140754-0fcbb8f4928c h1:2+jF2APAgFgXJnYOQGDGGiRvvEo6OhqZGQf46n9xgEw=
+golang.org/x/sys v0.0.0-20201027140754-0fcbb8f4928c/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
