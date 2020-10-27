@@ -13,7 +13,9 @@ func (ep *EP) newThreadPoolSequence() *threadpool.PoolSequence {
 				ep.accept(req.SequenceId)
 			case OP_RECEIVE:
 				ep.OnReceive(req.Fd, req.Msg[:req.N], req.N)
-				ep.PutBufferPoolItem(&req.Msg)
+				ep.PutBuffer(&req.Msg)
+			case OP_EPOLLOUT:
+				ep.OnEpollOut(req.Fd)
 			case OP_CLOSE:
 				ep.DeleteConnection(req.Fd)
 				ep.CloseFd(req.Fd)

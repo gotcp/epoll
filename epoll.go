@@ -11,9 +11,9 @@ import (
 
 const (
 	DEFAULT_EPOLL_EVENTS        = 4096
-	DEFAULT_EPOLL_READ_TIMEOUT  = 5
-	DEFAULT_EPOLL_WRITE_TIMEOUT = 5
-	DEFAULT_POOL_MULTIPLE       = 5
+	DEFAULT_EPOLL_READ_TIMEOUT  = 6
+	DEFAULT_EPOLL_WRITE_TIMEOUT = 6
+	DEFAULT_POOL_MULTIPLE       = 6
 )
 
 func New(readBuffer int, threads int, queueLength int) (*EP, error) {
@@ -40,6 +40,7 @@ func New(readBuffer int, threads int, queueLength int) (*EP, error) {
 		EpollEvents:  DEFAULT_EPOLL_EVENTS,
 		OnAccept:     nil,
 		OnReceive:    nil,
+		OnEpollOut:   nil,
 		OnClose:      nil,
 		OnError:      nil,
 	}
@@ -61,21 +62,21 @@ func New(readBuffer int, threads int, queueLength int) (*EP, error) {
 	return ep, nil
 }
 
-func (ep *EP) newBufferPool(readBuffer int, length int) *pool.Pool {
+func (ep *EP) newBufferPool(length int, capacity int) *pool.Pool {
 	return pool.New(length, func() interface{} {
-		var b = make([]byte, readBuffer)
+		var b = make([]byte, length)
 		return &b
 	})
 }
 
-func (ep *EP) newConnPool(length int) *pool.Pool {
-	return pool.NewWithId(length, func(id uint64) interface{} {
+func (ep *EP) newConnPool(capacity int) *pool.Pool {
+	return pool.NewWithId(capacity, func(id uint64) interface{} {
 		return &Conn{Id: id}
 	})
 }
 
-func (ep *EP) newRequestPool(length int) *pool.Pool {
-	return pool.NewWithId(length, func(id uint64) interface{} {
+func (ep *EP) newRequestPool(capacity int) *pool.Pool {
+	return pool.NewWithId(capacity, func(id uint64) interface{} {
 		return &Request{Id: id}
 	})
 }
@@ -196,7 +197,7 @@ func (ep *EP) InitEpoll(host string, port int) error {
 	}
 
 	var event unix.EpollEvent
-	event.Events = unix.EPOLLIN | unix.EPOLLET
+	event.Events = unix.EPOLLIN | unix.EPOLLOUT | unix.EPOLLET
 	event.Fd = int32(ep.Fd)
 
 	if err = unix.EpollCtl(ep.Epfd, unix.EPOLL_CTL_ADD, ep.Fd, &event); err != nil {

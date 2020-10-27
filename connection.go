@@ -8,6 +8,12 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	EPOLL_EVENTS          = unix.EPOLLET
+	EPOLL_EVENTS_EPOLLIN  = unix.EPOLLIN | unix.EPOLLET
+	EPOLL_EVENTS_EPOLLOUT = unix.EPOLLIN | unix.EPOLLOUT | unix.EPOLLET
+)
+
 type UpdateDataFunc func(data interface{})
 
 func connRecycleUpdate(ptr interface{}) {
@@ -40,7 +46,11 @@ func (ep *EP) putConn(conn *Conn) {
 }
 
 func (ep *EP) Add(fd int) error {
-	var err = unix.EpollCtl(ep.Epfd, unix.EPOLL_CTL_ADD, fd, &unix.EpollEvent{Events: unix.EPOLLIN | unix.EPOLLET, Fd: int32(fd)})
+	var event = &unix.EpollEvent{
+		Events: EPOLL_EVENTS_EPOLLIN,
+		Fd:     int32(fd),
+	}
+	var err = unix.EpollCtl(ep.Epfd, unix.EPOLL_CTL_ADD, fd, event)
 	if err != nil {
 		return err
 	}
@@ -51,6 +61,38 @@ func (ep *EP) Add(fd int) error {
 	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_RCVTIMEO, ep.ReadTimeout)
 	unix.SetsockoptInt(fd, unix.SOL_SOCKET, unix.SO_SNDTIMEO, ep.WriteTimeout)
 	return err
+}
+
+func (ep *EP) EnableEpollIn(fd int) error {
+	var event = &unix.EpollEvent{
+		Events: EPOLL_EVENTS_EPOLLIN,
+		Fd:     int32(fd),
+	}
+	return unix.EpollCtl(ep.Epfd, unix.EPOLL_CTL_MOD, fd, event)
+}
+
+func (ep *EP) DisableEpollIn(fd int) error {
+	var event = &unix.EpollEvent{
+		Events: EPOLL_EVENTS,
+		Fd:     int32(fd),
+	}
+	return unix.EpollCtl(ep.Epfd, unix.EPOLL_CTL_MOD, fd, event)
+}
+
+func (ep *EP) EnableEpollOut(fd int) error {
+	var event = &unix.EpollEvent{
+		Events: EPOLL_EVENTS_EPOLLOUT,
+		Fd:     int32(fd),
+	}
+	return unix.EpollCtl(ep.Epfd, unix.EPOLL_CTL_MOD, fd, event)
+}
+
+func (ep *EP) DisableEpollOut(fd int) error {
+	var event = &unix.EpollEvent{
+		Events: EPOLL_EVENTS_EPOLLIN,
+		Fd:     int32(fd),
+	}
+	return unix.EpollCtl(ep.Epfd, unix.EPOLL_CTL_MOD, fd, event)
 }
 
 func (ep *EP) Delete(fd int) error {
@@ -77,7 +119,7 @@ func (ep *EP) DestroyConnection(fd int) error {
 	var err error
 	var sequenceId = ep.GetConnectionSequenceId(fd)
 	if sequenceId < 0 {
-		err = errors.New(fmt.Sprintf("%d not found in the list", fd))
+		err = errors.New(fmt.Sprintf(ErrorTemplateNotFound, fd))
 		return err
 	}
 	if err = ep.Delete(fd); err == nil {
@@ -132,6 +174,7 @@ func (ep *EP) AddConnection(fd int, sequenceId int) {
 	var conn = ep.getConn()
 	conn.Fd = fd
 	conn.SequenceId = sequenceId
+	conn.Data = nil
 	conn.Timestamp = time.Now().Unix()
 	conn.Status = 0
 	ep.Connections.Put(fd, conn)

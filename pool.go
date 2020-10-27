@@ -1,9 +1,5 @@
 package epoll
 
-import (
-	"errors"
-)
-
 func bufferRecycleUpdate(ptr interface{}) {
 	var buffer, ok = ptr.(*[]byte)
 	if ok && buffer != nil {
@@ -11,20 +7,20 @@ func bufferRecycleUpdate(ptr interface{}) {
 	}
 }
 
-func (ep *EP) GetBufferPoolItem() (*[]byte, error) {
+func (ep *EP) GetBuffer() (*[]byte, error) {
 	var iface, err = ep.bufferPool.Get()
 	if err == nil {
 		var buffer, ok = iface.(*[]byte)
 		if ok {
 			return buffer, nil
 		} else {
-			return nil, errors.New("get pool buffer error")
+			return nil, ErrorGetPoolBuffer
 		}
 	} else {
 		return nil, err
 	}
 }
 
-func (ep *EP) PutBufferPoolItem(buffer *[]byte) {
+func (ep *EP) PutBuffer(buffer *[]byte) {
 	ep.bufferPool.Put(buffer)
 }

@@ -53,12 +53,16 @@ func (ep *EP) InvokeReceive(sequenceId int, fd int, msg *[]byte, n int) {
 	ep.threadPoolSequence.Invoke(sequenceId, ep.getRequestItemForReceive(sequenceId, fd, msg, n))
 }
 
+func (ep *EP) InvokeEpollOut(fd int) {
+	ep.threadPoolSequence.Invoke(-1, ep.getRequestItemForEpollOut(fd))
+}
+
 func (ep *EP) InvokeClose(sequenceId int, fd int) {
 	if sequenceId < 0 {
 		sequenceId = ep.GetConnectionSequenceId(fd)
 		if sequenceId < 0 {
 			if ep.OnError != nil {
-				var err = errors.New(fmt.Sprintf("%d not found in the list", fd))
+				var err = errors.New(fmt.Sprintf(ErrorTemplateNotFound, fd))
 				ep.InvokeError(-1, fd, ERROR_CLOSE_CONNECTION, err)
 			}
 			return
@@ -85,6 +89,14 @@ func (ep *EP) getRequestItemForReceive(sequenceId int, fd int, msg *[]byte, n in
 	req.SequenceId = sequenceId
 	req.Msg = *msg
 	req.N = n
+	return req
+}
+
+func (ep *EP) getRequestItemForEpollOut(fd int) *Request {
+	var req = ep.getRequestItem()
+	req.Op = OP_EPOLLOUT
+	req.Fd = fd
+	req.SequenceId = -1
 	return req
 }
 

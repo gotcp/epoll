@@ -25,6 +25,17 @@ import (
 )
 
 const (
+	SSL_ERROR_TIMEOUT      = -9
+	SSL_ERROR_NONE         = int(C.SSL_ERROR_NONE)
+	SSL_ERROR_SSL          = int(C.SSL_ERROR_SSL)
+	SSL_ERROR_WANT_READ    = int(C.SSL_ERROR_WANT_READ)
+	SSL_ERROR_WANT_WRITE   = int(C.SSL_ERROR_WANT_WRITE)
+	SSL_ERROR_SYSCALL      = int(C.SSL_ERROR_SYSCALL)
+	SSL_ERROR_ZERO_RETURN  = int(C.SSL_ERROR_ZERO_RETURN)
+	SSL_ERROR_WANT_CONNECT = int(C.SSL_ERROR_WANT_CONNECT)
+)
+
+const (
 	DEFAULT_C_MALLOC_TRIM_INTERVAL = 5000
 )
 
@@ -69,12 +80,13 @@ type EP struct {
 	threadPoolSequence *threadpool.PoolSequence // thread pool sequence
 	OnAccept           OnAcceptEvent
 	OnReceive          OnReceiveEvent
+	OnEpollOut         OnEpollOutEvent
 	OnClose            OnCloseEvent
 	OnError            OnErrorEvent
 }
 
-func (ep *EP) newSSLPool(length int) *pool.Pool {
-	return pool.NewWithId(length, func(id uint64) interface{} {
+func (ep *EP) newSSLPool(capacity int) *pool.Pool {
+	return pool.NewWithId(capacity, func(id uint64) interface{} {
 		var ssl = &SSL{
 			Id:  id,
 			SSL: C.SSL_new(ep.SSLCtx),
@@ -97,7 +109,8 @@ func (ep *EP) putSSL(ssl *SSL) {
 }
 
 func newSSLCtx(certFile string, keyFile string) *C.SSL_CTX {
-	var cret C.int = C.OPENSSL_init_ssl(C.OPENSSL_INIT_LOAD_SSL_STRINGS|C.OPENSSL_INIT_LOAD_CRYPTO_STRINGS, nil)
+	// var cret C.int = C.OPENSSL_init_ssl(C.OPENSSL_INIT_LOAD_SSL_STRINGS|C.OPENSSL_INIT_LOAD_CRYPTO_STRINGS, nil)
+	var cret C.int = C.OPENSSL_init_ssl(0, nil)
 	if cret <= 0 {
 		panic(errors.New("unable to init SSL"))
 	}
@@ -107,6 +120,8 @@ func newSSLCtx(certFile string, keyFile string) *C.SSL_CTX {
 	if ctx == nil {
 		panic(errors.New("unable to create SSL context"))
 	}
+
+	C.SSL_CTX_ctrl(ctx, C.SSL_CTRL_MODE, C.SSL_MODE_AUTO_RETRY, C.NULL)
 
 	var ccertp = C.CString(certFile)
 	var ckeyp = C.CString(keyFile)
@@ -205,15 +220,39 @@ func (ep *EP) setConnectionSSL(fd int, ssl *SSL) bool {
 	return ok
 }
 
+func GetSSLErrorNumber(ssl *C.SSL, ret int) int {
+	return int(C.SSL_get_error(ssl, (C.int)(ret)))
+}
+
+func GetSSLError(errno int) error {
+	switch errno {
+	case SSL_ERROR_NONE:
+		return nil
+	case SSL_ERROR_WANT_WRITE:
+		return ErrorSSLWantWrite
+	case SSL_ERROR_WANT_READ:
+		return ErrorSSLWantRead
+	case SSL_ERROR_ZERO_RETURN:
+		return ErrorSSLZeroReturn
+	case SSL_ERROR_TIMEOUT:
+		return ErrorSSLTimeout
+	case SSL_ERROR_WANT_CONNECT:
+		return ErrorSSLWantConnect
+	case SSL_ERROR_SSL:
+		return ErrorSSL
+	case SSL_ERROR_SYSCALL:
+		return ErrorSSLSyscall
+	}
+	return ErrorSSLUnknow
+}
+
 func sslRead(ssl *C.SSL, buffer []byte, n int) int {
 	return int(C.SSL_read(ssl, unsafe.Pointer(&buffer[0]), (C.int)(n)))
 }
 
-func sslWrite(ssl *C.SSL, buffer []byte, n int) bool {
-	if C.SSL_write(ssl, unsafe.Pointer(&buffer[0]), (C.int)(n)) > 0 {
-		return true
-	}
-	return false
+func sslWrite(ssl *C.SSL, buffer []byte, n int) (int, int) {
+	var ret = int(C.SSL_write(ssl, unsafe.Pointer(&buffer[0]), (C.int)(n)))
+	return ret, GetSSLErrorNumber(ssl, ret)
 }
 
 func freeSSL(ssl *SSL) {

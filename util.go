@@ -2,62 +2,62 @@ package epoll
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"golang.org/x/sys/unix"
 )
 
-func Write(fd int, msg []byte) error {
-	var _, err = unix.Write(fd, msg)
-	return err
+func Write(fd int, msg []byte) (int, error) {
+	return unix.Write(fd, msg)
 }
 
-func WriteWithTimeout(fd int, msg []byte, timeout time.Duration) error {
+func WriteWithTimeout(fd int, msg []byte, timeout time.Duration) (int, error) {
 	var ctx, cancel = context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+
 	var done = make(chan int8, 1)
+
 	var err error
+	var writed int
+
 	go func() {
-		err = Write(fd, msg)
+		writed, err = Write(fd, msg)
 		done <- 1
 	}()
+
 	select {
 	case <-done:
-		return err
+		return writed, err
 	case <-ctx.Done():
-		return ctx.Err()
+		return -1, ctx.Err()
 	}
 }
 
-func (ep *EP) WriteSSL(fd int, msg []byte, n int) error {
-	var err error
+func (ep *EP) WriteSSL(fd int, msg []byte, n int) (int, int) {
 	var ssl = ep.GetConnectionSSL(fd)
 	if ssl != nil {
-		if sslWrite(ssl.SSL, msg, n) {
-			return nil
-		}
-	} else {
-		err = errors.New("fd not found in the list")
-		return err
+		return sslWrite(ssl.SSL, msg, n)
 	}
-	err = errors.New("SSL write error")
-	return err
+	return -1, -1
 }
 
-func (ep *EP) WriteSSLWithTimeout(fd int, msg []byte, n int, timeout time.Duration) error {
+func (ep *EP) WriteSSLWithTimeout(fd int, msg []byte, n int, timeout time.Duration) (int, int) {
 	var ctx, cancel = context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	var done = make(chan int8, 1)
-	var err error
+
+	var done = make(chan int8)
+
+	var writed, errno int
+
 	go func() {
-		err = ep.WriteSSL(fd, msg, n)
+		writed, errno = ep.WriteSSL(fd, msg, n)
 		done <- 1
 	}()
+
 	select {
 	case <-done:
-		return err
+		return writed, errno
 	case <-ctx.Done():
-		return ctx.Err()
+		return -1, SSL_ERROR_TIMEOUT
 	}
 }

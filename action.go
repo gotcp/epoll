@@ -20,8 +20,7 @@ func (ep *EP) accept(sequenceId int) {
 				} else {
 					ep.CloseFd(fd)
 					if ep.OnError != nil {
-						err = errors.New("unable to create SSL connection")
-						ep.OnError(fd, ERROR_SSL_CONNECTION_CREATE, err)
+						ep.OnError(fd, ERROR_SSL_CONNECTION_CREATE, ErrorSSLUnableCreate)
 					}
 					continue
 				}
@@ -54,36 +53,53 @@ func (ep *EP) read(fd int) {
 	var sequenceId, ssl = ep.GetConnectionSequenceIdAndSSL(fd)
 	if sequenceId < 0 {
 		if ep.OnError != nil {
-			err = errors.New(fmt.Sprintf("%d not found in the list", fd))
+			err = errors.New(fmt.Sprintf(ErrorTemplateNotFound, fd))
 			ep.InvokeError(-1, fd, ERROR_READ, err)
 		}
 		return
 	}
 	var msg *[]byte
-	var n int
+	var readed, errno int
 	for {
-		msg, err = ep.GetBufferPoolItem()
+		msg, err = ep.GetBuffer()
 		if err != nil {
 			ep.InvokeError(sequenceId, fd, ERROR_POOL_BUFFER, err)
 			ep.CloseAction(sequenceId, fd)
 			break
 		}
 		if ep.IsSSL {
-			n = sslRead(ssl.SSL, *msg, ep.ReadBuffer)
-		} else {
-			n, err = unix.Read(fd, *msg)
-		}
-		if err == nil {
-			if n > 0 {
-				ep.InvokeReceive(sequenceId, fd, msg, n)
-			} else {
-				ep.PutBufferPoolItem(msg)
+			readed = sslRead(ssl.SSL, *msg, ep.ReadBuffer)
+			errno = GetSSLErrorNumber(ssl.SSL, readed)
+			if errno == SSL_ERROR_NONE {
+				if readed > 0 {
+					ep.InvokeReceive(sequenceId, fd, msg, readed)
+				} else {
+					ep.PutBuffer(msg)
+					ep.CloseAction(sequenceId, fd)
+					break
+				}
+			} else if errno == SSL_ERROR_ZERO_RETURN || errno == SSL_ERROR_SYSCALL || errno == SSL_ERROR_SSL {
+				ep.PutBuffer(msg)
 				ep.CloseAction(sequenceId, fd)
+				break
+			} else {
+				ep.PutBuffer(msg)
 				break
 			}
 		} else {
-			ep.PutBufferPoolItem(msg)
-			break
+			readed, err = unix.Read(fd, *msg)
+			if err == nil {
+				if readed > 0 {
+					ep.InvokeReceive(sequenceId, fd, msg, readed)
+				} else {
+					ep.PutBuffer(msg)
+					ep.CloseAction(sequenceId, fd)
+					break
+				}
+			} else {
+				ep.PutBuffer(msg)
+				break
+			}
 		}
 	}
 }

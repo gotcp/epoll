@@ -18,6 +18,10 @@ func (ep *EP) listen() {
 					ep.InvokeAccept()
 				} else if events[i].Events&unix.EPOLLIN != 0 {
 					ep.read(fd)
+				} else if events[i].Events&unix.EPOLLOUT != 0 {
+					if ep.OnEpollOut != nil {
+						ep.InvokeEpollOut(fd)
+					}
 				} else {
 					if fd > 0 {
 						ep.CloseAction(-1, fd)
