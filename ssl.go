@@ -2,7 +2,13 @@ package epoll
 
 /*
 #cgo LDFLAGS: -lssl -lcrypto -ldl
+#ifdef __linux__
 #include <malloc.h>
+#elif __APPLE__
+#include <malloc/malloc.h>
+#else
+# error "Unknown compiler"
+#endif
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>

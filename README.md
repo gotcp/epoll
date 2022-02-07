@@ -21,8 +21,8 @@ func OnAccept(fd int) {
 
 // Asynchronous event
 func OnReceive(fd int, msg []byte, n int) {
-	// var err = epoll.Write(fd, msg)
-	var err = epoll.WriteWithTimeout(fd, msg, 3*time.Second)
+	// var _, err = epoll.Write(fd, msg)
+	var _, err = epoll.WriteWithTimeout(fd, msg, 3*time.Second)
 	if err != nil {
 		fmt.Printf("OnReceive -> %d, %v\n", fd, err)
 	}
@@ -64,6 +64,6 @@ func main() {
 	ep.OnAccept = OnAccept   // optional
 	ep.OnClose = OnClose     // optional
 
-	ep.Start("127.0.0.1", 8001)
+	ep.Start("0.0.0.0", 8001)
 }
 ```
